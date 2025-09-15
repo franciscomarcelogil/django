@@ -1,0 +1,14 @@
+<h4>Editar Pedido #{{ pedido.id }} – Cliente: {{ pedido.cliente.nombre }}</h4>
+
+<ul class="list-group mb-3">
+  {% for tarea in tareas %}
+  <li class="list-group-item">{{ tarea.descripcion }}</li>
+  {% empty %}
+  <li class="list-group-item text-muted">No hay tareas aún.</li>
+  {% endfor %}
+</ul>
+
+<form method="post" class="border p-3 rounded bg-light">
+  {% csrf_token %}
+  <button class="btn btn-primary">Agregar tarea</button>
+</form>

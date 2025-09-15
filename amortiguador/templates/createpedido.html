@@ -1,0 +1,111 @@
+{% extends 'base.html' %} {% block content %}
+<!-- Formulario de creación de pedido -->
+<div class="container mt-3 bg-light p-4 rounded">
+  <div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="accion" value="buscar_cliente" />
+
+        <div class="input-group">
+          <input
+            type="text"
+            name="dni"
+            id="dni"
+            class="form-control form-control-sm"
+            placeholder="Buscar cliente por DNI"
+            value="{{ dni }}"
+            required
+            {%
+            if
+            dni
+            %}readonly{%
+            endif
+            %}
+          />
+          <button
+            type="submit"
+            class="btn btn-primary"
+            {%
+            if
+            dni
+            %}disabled{%
+            endif
+            %}
+          >
+            buscar cliente
+          </button>
+        </div>
+      </form>
+     </div> 
+    </div>
+{% if cliente %}
+      <div class="alert alert-info mt-3">
+        Cliente encontrado: {{ cliente.nombre }} {{ cliente.apellido }} (DNI: {{
+        cliente.dni }})
+      </div>
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="accion" value="crear_pedido" />
+        <input type="hidden" name="cliente_id" value="{{ cliente.id }}" />
+        <button type="submit" class="btn btn-success">Crear pedido</button>
+      </form>
+
+      {% endif %} {% if cliente_no_encontrado %}
+      <div class="alert alert-warning">
+        No se encontró ningún cliente con el DNI <strong>{{ dni }}</strong>. Por
+        favor, complete los datos para crearlo junto con el pedido.
+      </div>
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="accion" value="crear_cliente_pedido" />
+        <input type="hidden" name="dni" value="{{ dni }}" />
+        <div class="mb-3">
+          <label for="nombre">Nombre del cliente</label>
+          <input
+            type="text"
+            name="nombre"
+            id="nombre"
+            class="form-control"
+            required
+          />
+        </div>
+        <div class="mb-3">
+          <label for="apellido">Apellido del cliente</label>
+          <input
+            type="text"
+            name="apellido"
+            id="apellido"
+            class="form-control"
+            required
+          />
+        </div>
+        <div class="mb-3">
+          <label for="correo">Correo del cliente</label>
+          <input
+            type="email"
+            name="correo"
+            id="correo"
+            class="form-control"
+            required
+          />
+        </div>
+        <div class="mb-3">
+          <label for="telefono">Teléfono del cliente</label>
+          <input
+            type="text"
+            name="telefono"
+            id="telefono"
+            class="form-control"
+            required
+          />
+        </div>
+        <button type="submit" class="btn btn-primary">
+          Crear Cliente y Pedido
+        </button>
+      </form>
+      {% endif %}
+    </div>
+    {% endblock %}
+  </div>
+</div>

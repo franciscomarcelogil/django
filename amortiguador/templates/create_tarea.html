@@ -1,0 +1,150 @@
+{% extends 'base.html' %} {% block content %}
+<div class="container mt-3 bg-light p-4 rounded">
+  <h4>Pedido #{{ pedido.id }} - {{ pedido.cliente.nombre }}</h4>
+
+  <h5 class="mt-4">Operarios disponibles</h5>
+
+  <ul>
+    {% for operario in operarios %}
+    <li>{{ operario.nombre }} {{ operario.apellido }}</li>
+    {% empty %}
+    <li>No hay operarios registrados.</li>
+    {% endfor %}
+  </ul>
+
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="accion" value="buscar" />
+    <p>numero de serie</p>
+    <input
+      type="number"
+      name="nroSerieamortiguador"
+      value="{{ nroSerieamortiguador }}"
+      required
+    />
+    <button type="submit">Enviar</button>
+  </form>
+  {% if amortiguador %}
+  <div class="alert alert-info mt-4">
+    <p>{{ amortiguador.nroSerieamortiguador }}</p>
+  </div>
+  <form action="" method="post">
+    {% csrf_token %}
+    <input type="hidden" name="accion" value="crear_tarea" />
+    <input type="hidden" name="id_amortiguador" value="{{ amortiguador.id }}">
+    <div class="container mt-4">
+      <div class="card-body">
+        <div class="card-title bg-dark text-light h4">Detalles Tarea:</div>
+        <div class="mb-3">
+          <label for="operario" class="form-label">operario</label>
+          <select name="operario" id="operario" class="form-select" required>
+            {% for op in operarios %}
+            <option value="{{ op.id }}">{{ op.nombre }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="mb-3">
+          <label for="prioridad" class="form-label">Prioridad</label>
+          <select name="prioridad" id="prioridad" class="form-select" required>
+            <option value="alta">Alta</option>
+            <option value="media">Media</option>
+            <option value="baja">Baja</option>
+          </select>
+        </div>
+        </div>
+            <button type="submit" class="btn btn-primary">
+        Crear Amortiguador y Tarea
+      </button>
+    </div>
+  </form>
+  {% endif %} {% if no_amortiguador %}
+  <p>No se encontró el amortiguador.</p>
+  <form action="" method="post">
+    {% csrf_token %}
+    <input type="hidden" name="accion" value="crear_amortiguador_tarea" />
+    <div class="container mt-4">
+      <div class="card-body">
+        <div class="card-title bg-dark text-light h4">Detalles Tarea:</div>
+        <div class="mb-3">
+          <label for="operario" class="form-label">operario</label>
+          <select name="operario" id="operario" class="form-select" required>
+            {% for op in operarios %}
+            <option value="{{ op.id }}">{{ op.nombre }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="mb-3">
+          <label for="prioridad" class="form-label">Prioridad</label>
+          <select name="prioridad" id="prioridad" class="form-select" required>
+            <option value="alta">Alta</option>
+            <option value="media">Media</option>
+            <option value="baja">Baja</option>
+          </select>
+        </div>
+      </div>
+      <div class="card-body">
+          <div class="card-title bg-dark text-light h4">
+            Detalles amortiguador:
+          </div>
+          <div class="mb-3 mt-3">
+            <label for="nro_amortiguador" class="form-label"
+              >numero amortiguador</label
+            >
+            <input
+              type="number"
+              name="nroSerieamortiguador"
+              value="{{ nroSerieamortiguador }}"
+            />
+          </div>
+          <div class="mb-3">
+            <label for="tipo_amortiguador" class="form-label"
+              >tipo amortiguador</label
+            >
+            <select
+              name="tipo_amortiguador"
+              id="tipo_amortiguador"
+              class="form-select"
+              required
+            >
+              <option value="normal">normal</option>
+              <option value="carrera">carrera</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="ficha_amortiguador" class="form-label"
+              >Ficha Técnica</label
+            >
+            <select
+              name="ficha_amortiguador"
+              id="ficha_amortiguador"
+              class="form-control"
+              required
+            >
+              <option value="">Seleccione una ficha...</option>
+              {% for ficha in fichas %}
+              <option value="{{ ficha.id }}">
+                {{ ficha.nroseriegenerico }} - {{ ficha.nombregenerico }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary">
+        Crear Amortiguador y Tarea
+      </button>
+    </div>
+  </form>
+  {% endif %}
+</div>
+{% endblock %} {% block extra_js %}
+<script>
+  $(document).ready(function () {
+    // Inicializa Select2 en el elemento con id 'ficha'
+    $('#ficha').select2({
+      placeholder: 'Busca por nombre o número de serie',
+      allowClear: true,
+    });
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends 'base.html' %} {% block content %}
+<div class="container mt-4 bg-light p-4 rounded">
+  <h1>Detalle del Pedido</h1>
+
+  <p><strong>ID del Pedido:</strong> {{ pedido.id }}</p>
+  <p><strong>Cliente:</strong> {{ pedido.cliente.nombre }}</p>
+  <p><strong>Estado:</strong> {{ pedido.estado }}</p>
+
+  <div>
+    <h2>Tareas Asociadas</h2>
+    <ul>
+      {% for tarea in tareas %}
+      <div class="card">
+        <div class="card-title h5 text-light bg-dark p-2">
+          numero serie: {{ tarea.amortiguador.nroSerieamortiguador }}
+        </div>
+        <div class="card-body">
+          <div class="card-title">Estado: {{ tarea.estado }}</div>
+          <div class="card-title">Prioridad: {{ tarea.prioridad}}</div>
+
+          <div class="card-text text-secondary">
+            <p>
+              <strong>nombre:</strong> {{ tarea.operario.nombre }}
+              {{tarea.operario.apellido }}
+              <strong>legajo:</strong> {{tarea.operario.legajo }}
+            </p>
+          </div>
+        </div>
+      </div>
+      {% empty %}
+      <li>No hay tareas asociadas a este pedido.</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="accion" value="crear_tarea" />
+    <button type="submit">crear nueva tarea</button>
+  </form>
+  <a href="/" class="btn btn-primary">volver</a>
+</div>
+{% endblock %}
