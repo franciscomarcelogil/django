@@ -1,0 +1,43 @@
+{% extends 'base.html' %} {% block content %}
+<div class="container mt-4">
+  <h2>Detalle de Tarea</h2>
+  <div class="card">
+    <div class="card-body">
+      <h5 class="card-title">Tarea #{{ tarea.id }}</h5>
+      <p class="card-text">
+        <strong>Amortiguador:</strong>
+        {{tarea.amortiguador.nroSerieamortiguador}}
+      </p>
+      <p>Observaciones:</p>
+      <ul>
+        {% for observacion in observaciones %}
+          <li>{{ observacion.tipoobservacion }}</li>
+          <li>{{ observacion.infoobservacion }}</li>
+          <li>{{ observacion.fechaobservacion }}</li>
+          {% if observacion.valordiagrama %}
+            <li>Valor de Diagrama: {{ observacion.valordiagrama }}</li>
+            {% if observacion.valordiagrama > tarea.amortiguador.fichaamortiguador.valor_minimo and observacion.valordiagrama < tarea.amortiguador.fichaamortiguador.valor_maximo %}
+              <li class="text-success">Estado: Aceptable</li>
+            {% else %}
+              <li class="text-danger">Estado: No Aceptable</li>
+            {% endif %}
+          {% endif %}
+          <hr />
+        {% endfor %}
+      </ul>
+      {% if tarea.estado == 'pendiente' %}
+      <a href="/create_observacion/{{ tarea.id }}/" class="btn btn-primary"
+        >Agregar Observación</a
+      >
+      {% endif %}
+
+      <form action="" method="post">
+        {% csrf_token %}
+        <button type="submit" name="accion" value="terminarobservacioncontrol" class="btn btn-secondary">terminar con las observaciones de control</button>
+      </form>
+      <a href="/paneltareas/" class="btn btn-primary">Volver al panel de tareas</a>
+    </div>
+  </div>
+</div>
+{% endblock %} 
+{% block extra_js %}{% endblock %}

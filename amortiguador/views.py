@@ -1,3 +1,4 @@
+import datetime
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse
 
@@ -98,3 +99,62 @@ def create_tarea(request, pedido_id):
             return redirect('detalle_pedido', pedido_id=pedido.id)
 
     return render(request, 'create_tarea.html', context)
+
+def paneltareas(request):
+    operarios = Operario.objects.all()
+    context = { 'operarios': operarios }
+    if request.method == 'POST':
+        accion = request.POST.get('accion')
+        if accion == 'elegiroperario':
+            operario_id = request.POST.get('operario')
+            operario = get_object_or_404(Operario, id=operario_id)
+            tareas = Tarea.objects.filter(operario=operario, estado='pendiente')
+            context['tareas'] = tareas
+            context['operario'] = operario
+    return render(request, 'paneltareas.html', context)
+
+def detalle_tarea(request, tarea_id):
+    tarea= get_object_or_404(Tarea, id=tarea_id)
+    context = {'tarea': tarea}
+    observaciones = Observacion.objects.filter(tarea=tarea)
+    context['observaciones'] = observaciones
+    if request.method == 'POST':
+        accion = request.POST.get('accion')
+        if accion == 'terminarobservacioncontrol':
+            tarea.estado = 'revisada'
+            tarea.save()
+            context['class'] = 'alert alert-success'
+            context['message'] = 'Has finalizado las observaciones de control de calidad.'
+            return redirect('home')
+    return render(request, 'detalle_tarea.html', context)
+
+
+def create_observacion(request, tarea_id):
+    tarea = get_object_or_404(Tarea, id=tarea_id)
+    context = {'tarea': tarea}
+    if request.method == 'POST':
+        accion = request.POST.get('accion')
+        if accion == 'observacion_control_calidad':
+            tarea = get_object_or_404(Tarea, id=request.POST.get('tarea_id'))
+            tipoobservacion = request.POST.get('tipoobservacion')
+            obs_data = {
+                'tarea': tarea,
+                'amortiguador': tarea.amortiguador,
+                'tipoobservacion': tipoobservacion,
+                'infoobservacion': request.POST.get('infoobservacion'),
+                'fechaobservacion': datetime.date.today(),
+                'horaobservacion': datetime.datetime.now().time(),
+            }
+            if tipoobservacion == 'controldiagrama':
+                obs_data['valordiagrama'] = request.POST.get('valordiagrama')
+            Observacion.objects.create(**obs_data)
+            if tarea.amortiguador.fichaamortiguador.valor_minimo <= float(obs_data['valordiagrama']) <= tarea.amortiguador.fichaamortiguador.valor_maximo:
+                context['class'] = 'alert alert-success'
+                context['message'] = 'El valor del diagrama está dentro del rango aceptable.'
+            else:
+                context['class'] = 'alert alert-danger'
+                context['message'] = 'El valor del diagrama está fuera del rango aceptable.'
+
+            return render(request, 'create_observacion.html', context)
+
+    return render(request, 'create_observacion.html', context)

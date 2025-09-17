@@ -20,10 +20,13 @@ from amortiguador import views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', views.home),
+    path('', views.home, name='home'),
     path('createpedido/', views.createpedido, name='createpedido'),
     path('detalle_pedido/<int:pedido_id>/', views.detalle_pedido, name='detalle_pedido'),
     path('create_tarea/<int:pedido_id>/', views.create_tarea, name='create_tarea'),
+    path('paneltareas/', views.paneltareas, name='paneltareas'),
+    path('detalle_tarea/<int:tarea_id>/', views.detalle_tarea, name='detalle_tarea'),
+    path('create_observacion/<int:tarea_id>/', views.create_observacion, name='create_observacion'),
 
 ]
 

@@ -27,9 +27,10 @@ class Operario(models.Model):
 class Fichaamortiguador (models.Model):
   nombregenerico = models.CharField(max_length=100)
   nroseriegenerico = models.CharField(max_length=100)
-  valorreferencia = models.CharField(max_length=200)
-  def __str__(self):
-        return f"{self.nroseriegenerico} - {self.nombregenerico}"
+  valor_minimo = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+  valor_maximo = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+
 
 class Amortiguador(models.Model):
   nroSerieamortiguador= models.BigIntegerField()
@@ -53,19 +54,20 @@ class Observacion (models.Model):
   fechaobservacion= models.DateField(auto_now_add=True)
   horaobservacion = models.TimeField(auto_now_add=True)
   tipoobservacion = models.CharField(max_length=100)
-  infoobservacion = models.TextField(blank = True)
+  infoobservacion = models.TextField(blank = True, null=True)
+  valordiagrama = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
 
 class Material(models.Model):
   tipo = models.CharField(max_length=100)
   stockActual = models.BigIntegerField()
   stockMinimo = models.BigIntegerField()
-  stockreservado = models.BigIntegerField()
+  stockreservado = models.BigIntegerField(blank=True, null=True)
 
 class MaterialTarea(models.Model):
   material = models.ForeignKey(Material, on_delete=models.CASCADE)
   tarea = models.ForeignKey(Tarea, on_delete=models.CASCADE)
   stockrecomendado = models.BigIntegerField()
-  stockusado = models.BigIntegerField()
+  stockusado = models.BigIntegerField(blank=True, null=True)
 
 class Proveedor(models.Model):
   nombre = models.CharField(max_length=200)
