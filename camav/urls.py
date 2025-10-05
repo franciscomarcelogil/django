@@ -27,6 +27,8 @@ urlpatterns = [
     path('paneltareas/', views.paneltareas, name='paneltareas'),
     path('detalle_tarea/<int:tarea_id>/', views.detalle_tarea, name='detalle_tarea'),
     path('create_observacion/<int:tarea_id>/', views.create_observacion, name='create_observacion'),
+    path('listapedidosrevisados/', views.listapedidosrevisados, name='listapedidosrevisados'),
+    path('historial_amortiguador/<int:tarea_id>/', views.historial_amortiguador, name='historial_amortiguador'),
 
 ]
 

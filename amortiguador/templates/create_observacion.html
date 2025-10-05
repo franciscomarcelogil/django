@@ -1,65 +1,61 @@
 {% extends 'base.html' %}
+
 {% block content %}
-<p class="card-text">
-  <strong>Amortiguador:</strong>
-  {{tarea.amortiguador.nroSerieamortiguador}}
-</p>
-<form action="" method="post">
-  {% csrf_token %}
-  <div class="card-title h5">Observación de diagrama</div>
-  <div class="mb-3">
-    <input type="hidden" name="accion" value="observacion_control_calidad" />
-    <input type="hidden" name="tarea_id" value="{{ tarea.id }}" />
-    <input
-      type="hidden"
-      name="amortiguador_id"
-      value="{{ tarea.amortiguador.id }}"
-    />
-    <label for="tipoobservacion" class="form-label">Tipo de Observación</label>
-    <select
-      name="tipoobservacion"
-      id="tipoobservacion"
-      class="form-select mb-3"
-    >
-      <option value="controlfisico">Física</option>
-      <option value="controldiagrama">Diagrama de Fuerza</option>
-    </select>
+<div class="container mt-4">
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <h5 class="card-title">Crear Observación</h5>
+      <p class="text-muted small mb-3"><strong>Amortiguador:</strong> {{ tarea.amortiguador.nroSerieamortiguador }}</p>
 
-    <div id="valordiagrama-group" style="display: none">
-      <label for="valordiagrama" class="form-label">Valor de Diagrama</label>
-      <input
-        type="number"
-        name="valordiagrama"
-        id="valordiagrama"
-        class="form-control"
-        step="0.01"
-      />
+      <form action="" method="post">
+        {% csrf_token %}
+        <input type="hidden" name="accion" value="observacion_control_calidad" />
+        <input type="hidden" name="tarea_id" value="{{ tarea.id }}" />
+        <input type="hidden" name="amortiguador_id" value="{{ tarea.amortiguador.id }}" />
+
+        <div class="mb-3">
+          <label for="tipoobservacion" class="form-label">Tipo de Observación</label>
+          <select name="tipoobservacion" id="tipoobservacion" class="form-select">
+            <option value="controlfisico">Física</option>
+            <option value="controldiagrama">Diagrama de Fuerza</option>
+          </select>
+        </div>
+
+        <div class="mb-3" id="valordiagrama-group" style="display:none;">
+          <label for="valordiagrama" class="form-label">Valor de Diagrama</label>
+          <input type="number" name="valordiagrama" id="valordiagrama" class="form-control" step="0.01" />
+        </div>
+
+        <div class="mb-3">
+          <label for="infoobservacion" class="form-label">Observación</label>
+          <textarea name="infoobservacion" id="infoobservacion" class="form-control" rows="4"></textarea>
+        </div>
+
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-primary">Agregar Observación</button>
+          <a href="/detalle_tarea/{{ tarea.id }}" class="btn btn-outline-secondary">Volver</a>
+        </div>
+      </form>
+
+      {% if class %}
+      <div class="mt-3 {{ class }}">{{ message }}</div>
+      {% endif %}
     </div>
-
-    <script>
-      document
-        .getElementById('tipoobservacion')
-        .addEventListener('change', function () {
-          var tipo = this.value;
-          var grupo = document.getElementById('valordiagrama-group');
-          grupo.style.display = tipo === 'controldiagrama' ? 'block' : 'none';
-        });
-    </script>
-    <label for="infoobservacion" class="form-label">Observación</label>
-    <textarea
-      name="infoobservacion"
-      id="infoobservacion"
-      class="form-control"
-      rows="3"
-    ></textarea>
   </div>
-  <button type="submit" class="btn btn-primary">agregar Observación</button>
-
-</form>
-
-{% if class %}
-  <div class="{{ class }}">{{ message }}</div>
-{% endif %}
-<a href="/detalle_tarea/{{ tarea.id }}" class="btn btn-secondary">Volver a Detalle de Tarea</a>
+</div>
+ 
 {% endblock %}
-{% block extra_js %}{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var tipo = document.getElementById('tipoobservacion');
+    var grupo = document.getElementById('valordiagrama-group');
+    function update() {
+      grupo.style.display = tipo.value === 'controldiagrama' ? 'block' : 'none';
+    }
+    tipo.addEventListener('change', update);
+    update();
+  });
+</script>
+{% endblock %}

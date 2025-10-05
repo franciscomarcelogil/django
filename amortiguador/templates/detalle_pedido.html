@@ -1,43 +1,91 @@
-{% extends 'base.html' %} {% block content %}
-<div class="container mt-4 bg-light p-4 rounded">
-  <h1>Detalle del Pedido</h1>
+{% extends 'base.html' %}
 
-  <p><strong>ID del Pedido:</strong> {{ pedido.id }}</p>
-  <p><strong>Cliente:</strong> {{ pedido.cliente.nombre }}</p>
-  <p><strong>Estado:</strong> {{ pedido.estado }}</p>
-
-  <div>
-    <h2>Tareas Asociadas</h2>
-    <ul>
-      {% for tarea in tareas %}
-      <div class="card">
-        <div class="card-title h5 text-light bg-dark p-2">
-          numero serie: {{ tarea.amortiguador.nroSerieamortiguador }}
+{% block content %}
+<div class="container mt-4">
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-start mb-3">
+        <div>
+          <h3 class="mb-0">Detalle del Pedido</h3>
+          <small class="text-muted">ID: {{ pedido.id }} &nbsp; • &nbsp; Cliente: {{ pedido.cliente.nombre }}</small>
         </div>
-        <div class="card-body">
-          <div class="card-title">Estado: {{ tarea.estado }}</div>
-          <div class="card-title">Prioridad: {{ tarea.prioridad}}</div>
-
-          <div class="card-text text-secondary">
-            <p>
-              <strong>nombre:</strong> {{ tarea.operario.nombre }}
-              {{tarea.operario.apellido }}
-              <strong>legajo:</strong> {{tarea.operario.legajo }}
-            </p>
-          </div>
+        <div class="text-end">
+          <span class="badge {% if pedido.estado == 'pendiente' %}bg-warning text-dark{% elif pedido.estado == 'revisado' %}bg-success{% else %}bg-secondary{% endif %}">{{ pedido.estado }}</span>
         </div>
       </div>
-      {% empty %}
-      <li>No hay tareas asociadas a este pedido.</li>
-      {% endfor %}
-    </ul>
-  </div>
 
-  <form method="post">
-    {% csrf_token %}
-    <input type="hidden" name="accion" value="crear_tarea" />
-    <button type="submit">crear nueva tarea</button>
-  </form>
-  <a href="/" class="btn btn-primary">volver</a>
+      <hr />
+
+      <h5 class="mb-3">Tareas asociadas</h5>
+      <div class="row g-3">
+        {% for tarea in tareas %}
+        <div class="col-12">
+          <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center bg-dark text-white">
+              <div class="fw-bold">Serie: {{ tarea.amortiguador.nroSerieamortiguador }}</div>
+              <div>
+                <span class="badge bg-info text-dark me-1">Prioridad: {{ tarea.prioridad }}</span>
+                <span class="badge {% if tarea.estado == 'revisada' %}bg-success{% elif tarea.estado == 'por reparar' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ tarea.estado }}</span>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <p class="mb-1"><strong>Operario:</strong> {{ tarea.operario.nombre }} {{ tarea.operario.apellido }}</p>
+                  <p class="mb-0 text-muted small">Legajo: {{ tarea.operario.legajo }}</p>
+                </div>
+                <div class="d-flex gap-2">
+                  {% if pedido.estado == 'revisado' %}
+                  <a href="/historial_amortiguador/{{ tarea.id }}/" class="btn btn-primary btn-sm">Ver historial</a>
+                  {% endif %}
+                  {% if pedido.estado == 'revisado' and tarea.estado == 'revisada' %}
+                  <a href="/detalle_tarea/{{ tarea.id }}/" class="btn btn-outline-secondary btn-sm">Revisar tarea</a>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+          <div class="alert alert-info">No hay tareas asociadas a este pedido.</div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="mt-4 d-flex justify-content-between align-items-center">
+        <div>
+          {% if pedido.estado == 'pendiente' %}
+          <form method="post" class="d-inline">
+            {% csrf_token %}
+            <input type="hidden" name="accion" value="crear_tarea" />
+            <button type="submit" class="btn btn-outline-primary btn-sm">Crear nueva tarea</button>
+          </form>
+          {% endif %}
+        </div>
+
+        <div>
+          {% if mensaje_exito %}
+          <div class="alert alert-success d-inline-block mb-0 me-2">{{ mensaje_exito }}</div>
+          <form action="" method="post" class="d-inline">
+            {% csrf_token %}
+            <div class="d-flex align-items-center gap-2">
+              <div>
+                <label for="fecha_limite" class="form-label mb-0 small">Fecha límite</label>
+                <input type="date" name="fecha_limite" class="form-control form-control-sm" required />
+              </div>
+              <button type="submit" name="accion" value="finalizar_pedido" class="btn btn-success btn-sm">Finalizar Pedido</button>
+            </div>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="mt-3">
+        <a href="/" class="btn btn-outline-secondary btn-sm">Volver</a>
+      </div>
+    </div>
+  </div>
 </div>
+
 {% endblock %}

@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4 bg-light p-4 rounded">
+  <h1>Historial de Amortiguador: {{ amortiguador.nroSerieamortiguador }}</h1>
+
+  {% if observaciones %}
+  <ul class="list-group">
+    {% for observacion in observaciones %}
+    <li class="list-group-item">
+      <strong>Fecha:</strong> {{ observacion.fechaobservacion }} <br />
+      <strong>Hora:</strong> {{ observacion.horaobservacion }} <br />
+      <strong>Tipo de Observación:</strong> {{ observacion.tipoobservacion }} <br />
+      {% if observacion.tipoobservacion == 'controldiagrama' %}
+      <strong>Valor de Diagrama:</strong> {{ observacion.valordiagrama }} <br />
+      {% endif %}
+      <strong>Información:</strong> {{ observacion.infoobservacion }}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No hay observaciones para este amortiguador.</p>
+  {% endif %}
+  
+
+  <a href="/detalle_pedido/{{ id_pedido }}" class="btn btn-primary mt-3">Volver</a>
+
+</div>
+{% endblock %}

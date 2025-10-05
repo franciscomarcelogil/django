@@ -1,0 +1,2 @@
+# Ignora todos los templates HTML de Django para Prettier
+amortiguador/templates/**/*.html

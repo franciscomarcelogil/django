@@ -1,43 +1,147 @@
-{% extends 'base.html' %} {% block content %}
+{% extends 'base.html' %}
+
+{% block content %}
 <div class="container mt-4">
-  <h2>Detalle de Tarea</h2>
-  <div class="card">
+  <div class="card shadow-sm">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <div>
+        <h5 class="mb-0">Tarea #{{ tarea.id }}</h5>
+        <small class="text-muted">Amortiguador: {{ tarea.amortiguador.nroSerieamortiguador }}</small>
+      </div>
+      <div class="text-end">
+        <span class="badge bg-primary me-1">{{ tarea.tipoTarea|capfirst }}</span>
+        <span class="badge {% if tarea.estado == 'por reparar' %}bg-warning text-dark{% else %}bg-secondary{% endif %} me-1">{{ tarea.estado }}</span>
+        <span class="badge bg-info text-dark">Prioridad: {{ tarea.prioridad }}</span>
+      </div>
+    </div>
     <div class="card-body">
-      <h5 class="card-title">Tarea #{{ tarea.id }}</h5>
-      <p class="card-text">
-        <strong>Amortiguador:</strong>
-        {{tarea.amortiguador.nroSerieamortiguador}}
-      </p>
-      <p>Observaciones:</p>
-      <ul>
+      <h6 class="card-subtitle mb-3">Observaciones</h6>
+
+      <ul class="list-group mb-3">
         {% for observacion in observaciones %}
-          <li>{{ observacion.tipoobservacion }}</li>
-          <li>{{ observacion.infoobservacion }}</li>
-          <li>{{ observacion.fechaobservacion }}</li>
-          {% if observacion.valordiagrama %}
-            <li>Valor de Diagrama: {{ observacion.valordiagrama }}</li>
-            {% if observacion.valordiagrama > tarea.amortiguador.fichaamortiguador.valor_minimo and observacion.valordiagrama < tarea.amortiguador.fichaamortiguador.valor_maximo %}
-              <li class="text-success">Estado: Aceptable</li>
-            {% else %}
-              <li class="text-danger">Estado: No Aceptable</li>
-            {% endif %}
+        <li class="list-group-item">
+          <div class="d-flex justify-content-between">
+            <div>
+              <strong>{{ observacion.tipoobservacion }}</strong>
+              <div class="small text-muted">{{ observacion.fechaobservacion }}</div>
+            </div>
+            <div class="text-end">
+              {% if observacion.valordiagrama %}
+                {% if observacion.valordiagrama >= tarea.amortiguador.fichaamortiguador.valor_minimo and observacion.valordiagrama <= tarea.amortiguador.fichaamortiguador.valor_maximo %}
+                  <span class="badge bg-success">Diagrama: {{ observacion.valordiagrama }} (Aceptable)</span>
+                {% else %}
+                  <span class="badge bg-danger">Diagrama: {{ observacion.valordiagrama }} (No Aceptable)</span>
+                {% endif %}
+              {% endif %}
+            </div>
+          </div>
+          {% if observacion.infoobservacion %}
+          <p class="mb-0 mt-2">{{ observacion.infoobservacion }}</p>
           {% endif %}
-          <hr />
+        </li>
+        {% empty %}
+        <li class="list-group-item">No hay observaciones.</li>
         {% endfor %}
       </ul>
-      {% if tarea.estado == 'pendiente' %}
-      <a href="/create_observacion/{{ tarea.id }}/" class="btn btn-primary"
-        >Agregar Observación</a
-      >
+
+      <div class="mb-3 d-flex gap-2">
+        {% if tarea.estado == 'pendiente' %}
+        <a href="/create_observacion/{{ tarea.id }}/" class="btn btn-primary">Agregar Observación</a>
+        {% endif %}
+
+        {% if tarea.pedido.estado == 'pendiente' %}
+        <form action="" method="post" class="m-0">
+          {% csrf_token %}
+          <button type="submit" name="accion" value="terminarobservacioncontrol" class="btn btn-success">Terminar observaciones pendientes</button>
+        </form>
+        {% endif %}
+
+        {% if tarea.estado == 'revisada' %}
+        <form action="" method="post" class="d-flex align-items-center">
+          {% csrf_token %}
+          <select name="confirmarreparacion" class="form-select form-select-sm me-2" style="width:140px;">
+            <option value="control">control</option>
+            <option value="reparacion">reparacion</option>
+          </select>
+          <button type="submit" name="accion" value="confirmarreparacion" class="btn btn-outline-primary btn-sm">Confirmar</button>
+        </form>
+        {% endif %}
+      </div>
+
+      {% if tarea.tipoTarea == 'reparacion' and tarea.estado == 'por reparar' and tarea.pedido.estado == 'revisado' %}
+      <div class="card mb-3">
+        <div class="card-body">
+          <h6 class="card-title">Materiales recomendados (Amortiguador)</h6>
+          <form action="" method="post">
+            {% csrf_token %}
+            <div class="table-responsive">
+              <table class="table table-sm table-hover align-middle">
+                <thead class="table-light">
+                  <tr>
+                    <th>Material</th>
+                    <th>Cantidad recomendada</th>
+                    <th>Ingresar cantidad</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for mat in materialxamortiguador %}
+                  <tr>
+                    <td>{{ mat.material.tipo }}</td>
+                    <td>{{ mat.cantidadrecomendada }}</td>
+                    <td style="width:160px;">
+                      <input type="hidden" name="material_id[]" value="{{ mat.material.id }}" />
+                      <input type="hidden" name="tarea_id" value="{{ tarea.id }}" />
+                      <div class="input-group input-group-sm">
+                        <input type="number" name="cantidadrecomendada[]" min="0" max="{{ mat.cantidadrecomendada }}" placeholder="Cantidad" value="0" required class="form-control form-control-sm" />
+                      </div>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            <button type="submit" name="accion" value="agregarmaterialtarea" class="btn btn-secondary btn-sm">Agregar Materiales</button>
+          </form>
+        </div>
+      </div>
       {% endif %}
 
-      <form action="" method="post">
-        {% csrf_token %}
-        <button type="submit" name="accion" value="terminarobservacioncontrol" class="btn btn-secondary">terminar con las observaciones de control</button>
-      </form>
-      <a href="/paneltareas/" class="btn btn-primary">Volver al panel de tareas</a>
+      {% if materialxtarea %}
+      <div class="card mb-3">
+        <div class="card-body">
+          <h6 class="card-title">Materiales Usados en la Tarea</h6>
+          <div class="table-responsive">
+            <table class="table table-sm table-bordered">
+              <thead class="table-light">
+                <tr>
+                  <th>Material</th>
+                  <th>Cantidad recomendada</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for mat in materialxtarea %}
+                <tr>
+                  <td>{{ mat.material.tipo }}</td>
+                  <td>{{ mat.stockrecomendado }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          <form action="" method="post" class="mt-2 d-flex justify-content-end">
+            {% csrf_token %}
+            <button type="submit" name="accion" value="reservar_materiales" class="btn btn-success">Reservar materiales</button>
+          </form>
+        </div>
+      </div>
+      {% endif %}
+
+      <a href="/paneltareas/" class="btn btn-outline-secondary">Volver a tareas</a>
     </div>
   </div>
 </div>
-{% endblock %} 
+
+{% endblock %}
+
 {% block extra_js %}{% endblock %}
