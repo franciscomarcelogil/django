@@ -1,14 +1,30 @@
-<h4>Editar Pedido #{{ pedido.id }} – Cliente: {{ pedido.cliente.nombre }}</h4>
+{% extends 'base.html' %}
 
-<ul class="list-group mb-3">
-  {% for tarea in tareas %}
-  <li class="list-group-item">{{ tarea.descripcion }}</li>
-  {% empty %}
-  <li class="list-group-item text-muted">No hay tareas aún.</li>
-  {% endfor %}
-</ul>
+{% block content %}
+<div class="container mt-4">
+  <div class="card shadow-sm">
+    <div class="card-header bg-primary text-white">
+      <h4 class="mb-0">Editar Pedido #{{ pedido.id }}</h4>
+      <small>Cliente: {{ pedido.cliente.nombre }}</small>
+    </div>
+    <div class="card-body">
+      <h5 class="mb-3">Tareas Asociadas</h5>
+      <ul class="list-group mb-3">
+        {% for tarea in tareas %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+          <span>{{ tarea.descripcion }}</span>
+          <span class="badge bg-info">Prioridad: {{ tarea.prioridad }}</span>
+        </li>
+        {% empty %}
+        <li class="list-group-item text-muted">No hay tareas aún.</li>
+        {% endfor %}
+      </ul>
 
-<form method="post" class="border p-3 rounded bg-light">
-  {% csrf_token %}
-  <button class="btn btn-primary">Agregar tarea</button>
-</form>
+      <form method="post" class="border p-3 rounded bg-light">
+        {% csrf_token %}
+        <button class="btn btn-primary w-100">Agregar Tarea</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

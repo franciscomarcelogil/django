@@ -1,11 +1,14 @@
 import datetime
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse
+from django.contrib.auth.decorators import login_required
+from .decorators import role_required
 
 from .models import Cliente , Pedido, Operario, Amortiguador, Fichaamortiguador, Tarea, Observacion, Material, MaterialFichaAmortiguador, MaterialTarea, Notificacion
 def home(request):
     return render(request, 'home.html')
 
+@role_required(['encargado'])
 def createpedido(request):
         context = {}
         if request.method == 'POST':
@@ -81,7 +84,7 @@ def detalle_pedido(request, pedido_id):
 
 
 def create_tarea(request, pedido_id):
-    operarios = Operario.objects.all()
+    operarios = Operario.objects.filter(role='operario')
     fichas = Fichaamortiguador.objects.all()
     pedido = get_object_or_404(Pedido, id=pedido_id)
     context = { 'operarios': operarios, 'fichas': fichas, 'pedido': pedido }
@@ -124,9 +127,16 @@ def create_tarea(request, pedido_id):
 
     return render(request, 'create_tarea.html', context)
 
+
+@login_required
+@role_required(['operario'])
 def paneltareas(request):
-    operarios = Operario.objects.all()
+    operarios = Operario.objects.filter(role='operario')
     context = { 'operarios': operarios }
+    # operario vinculado al usuario (si existe)
+    user_operario = getattr(request.user, 'operario', None)
+    if user_operario:
+        context['operario'] = user_operario
     if request.method == 'POST':
         accion = request.POST.get('accion')
         estadoselect = request.POST.get('estado')
@@ -135,46 +145,31 @@ def paneltareas(request):
         context['priority'] = priority
         if accion == 'elegiroperario':
             operario_id = request.POST.get('operario')
-            operario = get_object_or_404(Operario, id=operario_id)
-            tareas = Tarea.objects.filter(operario=operario, estado=estadoselect, prioridad=priority)
-            if estadoselect == 'por reparar':
-                # Para cada tarea 'por reparar' comprobamos si hay stock suficiente
-                tareas_info = []
-                for t in tareas:
-                    missing = []
-                    # Primero, si ya hay MaterialTarea asociado, usamos sus cantidades recomendadas
-                    mts = MaterialTarea.objects.filter(tarea=t)
-                    if mts.exists():
-                        for mt in mts:
-                            mat = mt.material
-                            req = int(mt.stockrecomendado or 0)
-                            avail = max(0, int(mat.stockActual or 0) - int(mat.stockreservado or 0))
-                            if avail < req:
-                                missing.append({'material': mat, 'required': req, 'available': avail})
-                    tareas_info.append({'tarea': t, 'has_stock': len(missing) == 0, 'missing': missing})
-                    # Crear una notificación si falta stock y no existe una abierta
-                    if len(missing) > 0:
-                        # evitar duplicados: notificacion abierta para la misma tarea
-                        existing = Notificacion.objects.filter(tarea=t, resolved=False)
-                        if not existing.exists():
-                            import json
-                            Notificacion.objects.create(tarea=t, materiales=json.dumps([
-                                {'material_id': m['material'].id, 'material_tipo': m['material'].tipo, 'required': m['required'], 'available': m['available']} for m in missing
-                            ]))
-                context['tareas_info'] = tareas_info
-            # pasar notificaciones pendientes al contexto
-            notifs = Notificacion.objects.filter(resolved=False).order_by('-fecha_solicitud')
-            import json
-            notif_list = []
-            for n in notifs:
-                try:
-                    mat_list = json.loads(n.materiales)
-                except Exception:
-                    mat_list = []
-                notif_list.append({'notificacion': n, 'materiales': mat_list})
-            context['notificaciones'] = notif_list
+
+            if operario_id:
+                operario = get_object_or_404(Operario, id=operario_id)
+            else:
+                operario = user_operario
+            if not operario:
+                context['error'] = 'No hay un operario asignado al usuario. Selecciona uno o contacta al administrador.'
+                return render(request, 'paneltareas.html', context)
+            tareas = Tarea.objects.filter(operario=operario)
+            if estadoselect:
+                tareas = tareas.filter(estado=estadoselect)
+            if priority:
+                tareas = tareas.filter(prioridad=priority)
             context['tareas'] = tareas
             context['operario'] = operario
+
+            if estadoselect:
+                context['titulo_tareas'] = f"Tareas con estado '{estadoselect}'"
+            else:
+                context['titulo_tareas'] = "Tareas Pendientes"
+
+    if request.method == 'GET' and user_operario:
+        tareas = Tarea.objects.filter(operario=user_operario, estado='por reparar')
+        context['tareas'] = tareas
+        context['titulo_tareas'] = "Tareas con estado 'por reparar'"
     return render(request, 'paneltareas.html', context)
 
 def detalle_tarea(request, tarea_id):
@@ -261,11 +256,12 @@ def create_observacion(request, tarea_id):
             if tipoobservacion == 'controldiagrama':
                 obs_data['valordiagrama'] = request.POST.get('valordiagrama')
             Observacion.objects.create(**obs_data)
-            # Después de crear la observación, volvemos al detalle de la tarea
+
             return redirect('detalle_tarea', tarea_id=tarea.id)
 
     return render(request, 'create_observacion.html', context)
 
+@role_required(['encargado'])
 def listapedidosrevisados(request):
     pedidos = Pedido.objects.filter(estado='revisado')
     return render(request, 'listapedidosrevisados.html', {'pedidos': pedidos})

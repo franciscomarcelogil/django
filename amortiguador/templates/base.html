@@ -26,19 +26,43 @@
     </button>
 
     <div class="collapse navbar-collapse " id="navbarCamav">
-      <ul class="navbar-nav ms-auto d-flex gap-3">
+  <ul class="navbar-nav ms-auto d-flex gap-3">
         <li class="nav-item">
           <a class="nav-link active" href="/">Inicio</a>
         </li>
+        {% if request.user.is_authenticated %}
+        {% with oper=request.user.operario %}
+        <li class="nav-item d-flex align-items-center text-light">
+          <span class="navbar-text">{{ request.user.username }}{% if oper %} · {{ oper.role|title }}{% endif %}</span>
+        </li>
+          {% if oper and oper.role == 'operario' %}
+          <li>
+            <a class="nav-link" href="/paneltareas">Panel de tareas</a>
+          </li>
+          
+          {% endif %}
+          {% if oper and oper.role == 'encargado' %}
+          <li class="nav-item">
+            <a class="nav-link" href="/createpedido">Crear pedido</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/listapedidosrevisados">Pedidos revisados</a>
+          </li>
+          {% endif %}
+        {% endwith %}
+        
+          <li>
+            <form method="post" action="/accounts/logout/" class="m-0">
+              {% csrf_token %}
+              <button type="submit" class="dropdown-item">Cerrar sesión</button>
+            </form>
+          </li>
+        
+        {% else %}
         <li class="nav-item">
-          <a class="nav-link" href="/createpedido">Crear pedido</a>
+          <a class="nav-link" href="/accounts/login/">Iniciar sesión</a>
         </li>
-        <li>
-          <a class="nav-link" href="/paneltareas">Panel de tareas</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="/listapedidosrevisados">Pedidos revisados</a>
-        </li>
+        {% endif %}
       </ul>
     </div>
   </div>

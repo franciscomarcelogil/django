@@ -17,12 +17,22 @@ class Pedido(models.Model):
   fechaSalidaReal = models.DateField(blank=True, null=True)
   cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE)
 
+from django.contrib.auth.models import User
+
+
 class Operario(models.Model):
   legajo = models.BigIntegerField()
   nombre = models.CharField(max_length=200)
   apellido = models.CharField(max_length=200)
   estado =models.CharField(max_length=200)
   password = models.CharField(max_length=200)
+  # link to Django User (optional)
+  user = models.OneToOneField(User, null=True, blank=True, on_delete=models.CASCADE, related_name='operario')
+  ROLE_CHOICES = (
+    ('operario', 'Operario'),
+    ('encargado', 'Encargado'),
+  )
+  role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='operario')
 
 class Fichaamortiguador (models.Model):
   nombregenerico = models.CharField(max_length=100)
@@ -58,11 +68,13 @@ class Observacion (models.Model):
   valordiagrama = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
 
 class Material(models.Model):
+  nombre = models.CharField(max_length=200, default='')
   tipo = models.CharField(max_length=100)
-  stockActual = models.BigIntegerField()
-  stockMinimo = models.BigIntegerField()
-  # stockreservado default 0 to avoid None checks and simplify logic
-  stockreservado = models.BigIntegerField(default=0)
+  unidad = models.CharField(max_length=100, default='unidad')
+  stockActual = models.BigIntegerField(default=0)
+  stockMinimo = models.BigIntegerField(default=0)
+
+  stockreservado = models.BigIntegerField(blank=True, null=True, default=0)
 
 class MaterialTarea(models.Model):
   material = models.ForeignKey(Material, on_delete=models.CASCADE)

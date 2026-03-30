@@ -41,8 +41,7 @@
     </div>
 {% if cliente %}
       <div class="alert alert-info mt-3">
-        Cliente encontrado: {{ cliente.nombre }} {{ cliente.apellido }} (DNI: {{
-        cliente.dni }})
+        Cliente encontrado: {{ cliente.nombre }} {{ cliente.apellido }} (DNI: {{cliente.dni }})
       </div>
       <form method="post">
         {% csrf_token %}

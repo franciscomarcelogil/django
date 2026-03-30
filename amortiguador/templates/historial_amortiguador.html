@@ -4,19 +4,35 @@
   <h1>Historial de Amortiguador: {{ amortiguador.nroSerieamortiguador }}</h1>
 
   {% if observaciones %}
-  <ul class="list-group">
-    {% for observacion in observaciones %}
-    <li class="list-group-item">
-      <strong>Fecha:</strong> {{ observacion.fechaobservacion }} <br />
-      <strong>Hora:</strong> {{ observacion.horaobservacion }} <br />
-      <strong>Tipo de Observación:</strong> {{ observacion.tipoobservacion }} <br />
-      {% if observacion.tipoobservacion == 'controldiagrama' %}
-      <strong>Valor de Diagrama:</strong> {{ observacion.valordiagrama }} <br />
-      {% endif %}
-      <strong>Información:</strong> {{ observacion.infoobservacion }}
-    </li>
-    {% endfor %}
-  </ul>
+  <h2>Observaciones</h2>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Fecha</th>
+        <th>Hora</th>
+        <th>Tipo de Observación</th>
+        <th>Valor de Diagrama</th>
+        <th>Información</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for observacion in observaciones %}
+      <tr>
+        <td>{{ observacion.fechaobservacion }}</td>
+        <td>{{ observacion.horaobservacion }}</td>
+        <td>{{ observacion.tipoobservacion }}</td>
+        <td>
+          {% if observacion.tipoobservacion == 'controldiagrama' %}
+          {{ observacion.valordiagrama }}
+          {% else %}
+          N/A
+          {% endif %}
+        </td>
+        <td>{{ observacion.infoobservacion }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
   {% else %}
   <p>No hay observaciones para este amortiguador.</p>
   {% endif %}
