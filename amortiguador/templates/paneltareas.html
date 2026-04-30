@@ -22,7 +22,10 @@
           <select name="estado" id="estado" class="form-select">
             <option value="" {% if not estadoselect %}selected{% endif %}>Todos</option>
             <option value="pendiente" {% if estadoselect == 'pendiente' %}selected{% endif %}>Pendiente</option>
+            <option value="revisada" {% if estadoselect == 'revisada' %}selected{% endif %}>Revisada</option>
             <option value="por reparar" {% if estadoselect == 'por reparar' %}selected{% endif %}>Por Reparar</option>
+            <option value="en reparacion" {% if estadoselect == 'en reparacion' %}selected{% endif %}>En Reparación</option>
+            <option value="terminada" {% if estadoselect == 'terminada' %}selected{% endif %}>Terminada</option>
           </select>
         </div>
         <div class="col-auto">
@@ -67,14 +70,6 @@
                     <td>{{ tarea.estado }}</td>
                     <td>
                       <a href="/detalle_tarea/{{ tarea.id }}" class="btn btn-sm btn-outline-primary">Ver</a>
-                      {% if info.has_stock %}
-                        <form action="{% url 'detalle_tarea' tarea.id %}" method="post" style="display:inline-block;">
-                          {% csrf_token %}
-                          <button type="submit" name="accion" value="reservar_materiales" class="btn btn-success btn-sm ms-1">Reservar</button>
-                        </form>
-                      {% else %}
-                        <span class="badge bg-secondary ms-1">Falta stock</span>
-                      {% endif %}
                     </td>
                   </tr>
                   {% endwith %}
