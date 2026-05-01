@@ -23,36 +23,67 @@
       {% endif %}
 
       <h6 class="card-subtitle mb-3">Observaciones</h6>
-      <ul class="list-group mb-3">
-        {% for observacion in observaciones %}
-        <li class="list-group-item">
-          <div class="d-flex justify-content-between">
-            <div>
-              <strong>{{ observacion.tipoobservacion }}</strong>
-              <div class="small text-muted">{{ observacion.fechaobservacion }}</div>
-            </div>
-            <div class="text-end">
-              {% if observacion.valordiagrama %}
-                {% if observacion.valordiagrama >= tarea.amortiguador.fichaamortiguador.valor_minimo and observacion.valordiagrama <= tarea.amortiguador.fichaamortiguador.valor_maximo %}
-                  <span class="badge bg-success">Diagrama: {{ observacion.valordiagrama }} (Aceptable)</span>
-                {% else %}
-                  <span class="badge bg-danger">Diagrama: {{ observacion.valordiagrama }} (No Aceptable)</span>
+      <div class="row g-3 mb-3">
+        <div class="col-12 col-lg-6">
+          <div class="card h-100">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                  <strong>Observación física</strong>
+                  <div class="small text-muted">Una sola observación editable hasta terminar la revisión</div>
+                </div>
+                {% if tarea.estado == 'pendiente' %}
+                <a href="{% url 'create_observacion' tarea.id %}?tipo=controlfisico" class="btn btn-sm btn-outline-primary">
+                  {% if observacion_fisica %}Editar{% else %}Agregar{% endif %}
+                </a>
                 {% endif %}
+              </div>
+              {% if observacion_fisica %}
+                <div class="small text-muted mb-1">{{ observacion_fisica.fechaobservacion }}</div>
+                <p class="mb-0">{{ observacion_fisica.infoobservacion|default:'Sin texto cargado.' }}</p>
+              {% else %}
+                <div class="alert alert-light mb-0">No hay observación física cargada.</div>
               {% endif %}
             </div>
           </div>
-          {% if observacion.infoobservacion %}
-          <p class="mb-0 mt-2">{{ observacion.infoobservacion }}</p>
-          {% endif %}
-        </li>
-        {% empty %}
-        <li class="list-group-item">No hay observaciones.</li>
-        {% endfor %}
-      </ul>
+        </div>
+
+        <div class="col-12 col-lg-6">
+          <div class="card h-100">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                  <strong>Observación de diagrama</strong>
+                  <div class="small text-muted">Una sola observación editable hasta terminar la revisión</div>
+                </div>
+                {% if tarea.estado == 'pendiente' %}
+                <a href="{% url 'create_observacion' tarea.id %}?tipo=controldiagrama" class="btn btn-sm btn-outline-primary">
+                  {% if observacion_diagrama %}Editar{% else %}Agregar{% endif %}
+                </a>
+                {% endif %}
+              </div>
+              {% if observacion_diagrama %}
+                <div class="small text-muted mb-1">{{ observacion_diagrama.fechaobservacion }}</div>
+                {% if observacion_diagrama.valordiagrama %}
+                  <p> valores entre: {{ tarea.amortiguador.fichaamortiguador.valor_minimo }} y {{ tarea.amortiguador.fichaamortiguador.valor_maximo }}</p>
+                  {% if observacion_diagrama.valordiagrama >= tarea.amortiguador.fichaamortiguador.valor_minimo and observacion_diagrama.valordiagrama <= tarea.amortiguador.fichaamortiguador.valor_maximo %}
+                    <span class="badge bg-success mb-2">Diagrama: {{ observacion_diagrama.valordiagrama }} (Aceptable)</span>
+                  {% else %}
+                    <span class="badge bg-danger mb-2">Diagrama: {{ observacion_diagrama.valordiagrama }} (No Aceptable)</span>
+                  {% endif %}
+                {% endif %}
+                <p class="mb-0">{{ observacion_diagrama.infoobservacion|default:'Sin texto cargado.' }}</p>
+              {% else %}
+                <div class="alert alert-light mb-0">No hay observación de diagrama cargada.</div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div class="mb-3 d-flex flex-wrap gap-2">
         {% if tarea.estado == 'pendiente' %}
-        <a href="{% url 'create_observacion' tarea.id %}" class="btn btn-primary">Agregar observacion</a>
+        <a href="{% url 'create_observacion' tarea.id %}?tipo=controlfisico" class="btn btn-primary">Editar observaciones</a>
         {% endif %}
 
         {% if tarea.estado == 'pendiente' and tarea.pedido.estado == 'pendiente' %}

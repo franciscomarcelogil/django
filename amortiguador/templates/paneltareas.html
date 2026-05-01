@@ -53,6 +53,8 @@
         <table class="table table-sm table-hover">
           <thead>
             <tr>
+              <th>ID Tarea</th>
+              <th>Fecha Asignación</th>
               <th>Amortiguador</th>
               <th>Prioridad</th>
               <th>Estado</th>
@@ -65,6 +67,8 @@
                 {% if info.tarea %}
                   {% with tarea=info.tarea %}
                   <tr>
+                    <td>{{ tarea.id }}</td>
+                    <td>{{ tarea.fechaAsignacion }}</td>
                     <td>{{ tarea.amortiguador.nroSerieamortiguador }}</td>
                     <td>{{ tarea.prioridad }}</td>
                     <td>{{ tarea.estado }}</td>
@@ -75,6 +79,8 @@
                   {% endwith %}
                 {% else %}
                   <tr>
+                    <td>{{ info.id }}</td>
+                    <td>{{ info.fechaAsignacion }}</td>
                     <td>{{ info.amortiguador.nroSerieamortiguador }}</td>
                     <td>{{ info.prioridad }}</td>
                     <td>{{ info.estado }}</td>

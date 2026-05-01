@@ -51,53 +51,51 @@
       </ul>
 
       {% if tarea.estado == 'revisada' or tarea.estado == 'por reparar' %}
-      <form action="" method="post" class="d-flex align-items-center mb-2">
-        {% csrf_token %}
-        <select name="confirmarreparacion" class="form-select form-select-sm me-2" style="width: 200px;">
-          <option value="control" {% if tarea.tipoTarea == 'control' %}selected{% endif %}>Control</option>
-          <option value="reparacion" {% if tarea.tipoTarea == 'reparacion' %}selected{% endif %}>Reparacion</option>
-        </select>
-        <button type="submit" name="accion" value="confirmarreparacion" class="btn btn-outline-primary btn-sm">Actualizar tipo</button>
-      </form>
       <p class="small text-muted mb-3">Si cambias el tipo de tarea, se eliminan los materiales guardados y se deben volver a definir.</p>
       {% endif %}
 
-      {% if tarea.tipoTarea == 'reparacion' and tarea.estado == 'por reparar' %}
-        {% if tarea.pedido.estado == 'revisado' or tarea.pedido.estado == 'por reparar' %}
+      {% if tarea.estado == 'revisada' or tarea.estado == 'por reparar' %}
       <div class="card mb-3">
         <div class="card-body">
-          <h6 class="card-title">Definir materiales maximos para reparacion</h6>
+          <h6 class="card-title">Sugerencia y aprobación de materiales</h6>
           <form action="" method="post">
             {% csrf_token %}
+            <div class="d-flex align-items-center mb-3">
+              <label class="me-2 mb-0">Tipo:</label>
+              <select name="tipoTarea" class="form-select form-select-sm me-2" style="width: 200px;">
+                <option value="control" {% if tarea.tipoTarea == 'control' %}selected{% endif %}>Control</option>
+                <option value="reparacion" {% if tarea.tipoTarea == 'reparacion' %}selected{% endif %}>Reparacion</option>
+              </select>
+              <button type="submit" name="accion" value="guardar_tipo_materiales" class="btn btn-primary btn-sm">Guardar</button>
+            </div>
             <div class="table-responsive">
               <table class="table table-sm table-hover align-middle">
                 <thead class="table-light">
                   <tr>
                     <th>Material</th>
                     <th>Cantidad recomendada</th>
-                    <th>Cantidad maxima a usar</th>
+                    <th>Cantidad aprobada</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {% for mat in materialxamortiguador %}
+                  {% for mat in materiales_sugeribles %}
                   <tr>
-                    <td>{{ mat.material.tipo }}</td>
-                    <td>{{ mat.cantidadrecomendada }}</td>
+                    <td>{{ mat.material_tipo }}</td>
+                    <td>{{ mat.cantidad_maxima }}</td>
                     <td style="width: 180px;">
-                      <input type="hidden" name="material_id[]" value="{{ mat.material.id }}" />
+                      <input type="hidden" name="material_id[]" value="{{ mat.material_id }}" />
                       <input type="hidden" name="tarea_id" value="{{ tarea.id }}" />
-                      <input type="number" name="cantidadrecomendada[]" min="0" max="{{ mat.cantidadrecomendada }}" placeholder="Cantidad" value="0" required class="form-control form-control-sm" />
+                      <input type="number" name="cantidadrecomendada[]" min="0" max="{{ mat.cantidad_maxima }}" placeholder="Cantidad" value="{{ mat.cantidad_sugerida }}" required class="form-control form-control-sm" />
                     </td>
                   </tr>
                   {% endfor %}
                 </tbody>
               </table>
             </div>
-            <button type="submit" name="accion" value="agregarmaterialtarea" class="btn btn-secondary btn-sm">Guardar materiales maximos</button>
+            <button type="submit" name="accion" value="agregarmaterialtarea" class="btn btn-secondary btn-sm">Guardar materiales aprobados</button>
           </form>
         </div>
       </div>
-        {% endif %}
       {% endif %}
 
       {% if materialxtarea %}
