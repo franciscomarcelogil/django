@@ -1,6 +1,4 @@
 from django.db import models
-from amortiguador import models
-
 
 class Cliente(models.Model):
   nombre = models.CharField(max_length=200)

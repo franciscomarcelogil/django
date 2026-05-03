@@ -18,7 +18,41 @@
 * {
   box-sizing: border-box;
 }
+/* Fondo del modal y bordes como tus cards */
+.modal-content {
+  background-color: #ffffff; /* O el color de fondo de tu sitio */
+  border: none;
+  border-radius: 15px; /* Bordes redondeados como tus otros elementos */
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
 
+/* Encabezado con el estilo oscuro que usas en las tareas */
+.modal-header {
+  background-color: #212529; /* El color dark que usas en el header de tareas */
+  color: white;
+  border-top-left-radius: 15px;
+  border-top-right-radius: 15px;
+  border-bottom: none;
+}
+
+/* Botón de cerrar blanco para que resalte en el fondo oscuro */
+.modal-header .btn-close {
+  filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+/* Botones del footer con espaciado consistente */
+.modal-footer {
+  border-top: 1px solid #eee;
+  padding: 1.5rem;
+}
+
+/*Inputs dentro del modal con tu estilo personalizado */
+.modal-body textarea,
+.modal-body input {
+  border-radius: 10px;
+  border: 1px solid #ced4da;
+  padding: 10px;
+}
 html {
   scroll-behavior: smooth;
 }
@@ -568,4 +602,100 @@ small,
   .input-group .form-select:not(:last-child) {
     border-radius: 12px 12px 0 0 !important;
   }
+}
+
+/* Tabla de presupuesto */
+.table-presupuesto {
+  border-collapse: separate;
+  border-spacing: 0;
+  margin-bottom: 0;
+}
+
+.table-presupuesto thead tr {
+  border-top: 2px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background-color: var(--primary-soft);
+}
+
+.table-presupuesto thead th {
+  padding: 12px;
+  font-weight: 700;
+  color: var(--text);
+  border: none;
+  text-align: right;
+}
+
+.table-presupuesto thead th:first-child {
+  text-align: left;
+}
+
+.table-presupuesto tbody tr {
+  border-bottom: 1px solid var(--border);
+}
+
+.table-presupuesto tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.5);
+}
+
+.table-presupuesto tbody td {
+  padding: 12px;
+  border: none;
+  text-align: right;
+  color: var(--text-muted);
+}
+
+.table-presupuesto tbody td:first-child {
+  text-align: left;
+}
+
+.table-presupuesto .row-revision,
+.table-presupuesto .row-mano-obra {
+  background-color: transparent;
+}
+
+.table-presupuesto .row-material {
+  background-color: transparent;
+}
+
+.table-presupuesto .row-empty td {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 20px 12px;
+}
+
+.table-presupuesto .row-subtotal {
+  border-top: 2px solid var(--border);
+  border-bottom: 2px solid var(--border);
+  background-color: var(--primary-soft);
+}
+
+.table-presupuesto .row-total {
+  border-bottom: 2px solid var(--border);
+}
+
+.label-bold {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.label-total {
+  font-weight: 700;
+  color: var(--text);
+  font-size: 1.05rem;
+}
+
+.value-bold {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.value-medium {
+  font-weight: 500;
+  color: var(--text);
+}
+
+.value-total {
+  font-weight: 700;
+  color: var(--primary);
+  font-size: 1.1rem;
 }

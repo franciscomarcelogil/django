@@ -1,44 +1,67 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="container mt-4 bg-light p-4 rounded">
-  <h1>Historial de Amortiguador: {{ amortiguador.nroSerieamortiguador }}</h1>
+<div class="container mt-4 bg-light p-4 rounded shadow-sm border">
+  <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-2">
+    <h2 class="text-primary mb-0">Historial de Amortiguador: {{ amortiguador.nroSerieamortiguador }}</h2>
+    <span class="badge bg-secondary fs-6">Ficha: {{ amortiguador.fichaamortiguador.descripcion }}</span>
+  </div>
 
   {% if observaciones %}
-  <h2>Observaciones</h2>
-  <table class="table">
-    <thead>
-      <tr>
-        <th>Fecha</th>
-        <th>Hora</th>
-        <th>Tipo de Observación</th>
-        <th>Valor de Diagrama</th>
-        <th>Información</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for observacion in observaciones %}
-      <tr>
-        <td>{{ observacion.fechaobservacion }}</td>
-        <td>{{ observacion.horaobservacion }}</td>
-        <td>{{ observacion.tipoobservacion }}</td>
-        <td>
-          {% if observacion.tipoobservacion == 'controldiagrama' %}
-          {{ observacion.valordiagrama }}
-          {% else %}
-          N/A
-          {% endif %}
-        </td>
-        <td>{{ observacion.infoobservacion }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div class="table-responsive">
+    <table class="table table-hover table-bordered align-middle bg-white">
+      <thead class="table-dark">
+        <tr>
+          <th style="width: 120px;">Fecha y Hora</th>
+          <th>Sugerencia</th>
+          <th class="text-center">Diagrama</th>
+          <th>Comentarios del Operario</th>
+          <th>Auditoría del Sistema (Registro)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for observacion in observaciones %}
+        <tr>
+          <!-- Fecha y Hora combinadas usando filtros de Django -->
+          <td>
+            <span class="fw-bold d-block">{{ observacion.fecha|date:"d/m/Y" }}</span>
+            <small class="text-muted">{{ observacion.fecha|time:"H:i" }}</small>
+          </td>
+          
+          <!-- Sugerencia Técnica -->
+          <td>
+            <span class="badge {% if observacion.sugerencia_tecnica == 'reparacion' %}bg-dark{% else %}bg-secondary{% endif %}">
+              {{ observacion.sugerencia_tecnica|upper }}
+            </span>
+          </td>
+          
+          <!-- Valor del Diagrama -->
+          <td class="text-center fw-bold">
+            {{ observacion.valor_diagrama|default:'N/A' }}
+          </td>
+          
+          <!-- Lo que escribió el operario -->
+          <td>
+            <span class="small">{{ observacion.detalle_operario|default:'Sin comentarios.'|linebreaksbr }}</span>
+          </td>
+          
+          <!-- Lo que autogeneró el sistema (inmutable) -->
+          <td class="small font-monospace bg-light" style="white-space: pre-wrap; min-width: 280px;">{{ observacion.detalle_autogenerado }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
   {% else %}
-  <p>No hay observaciones para este amortiguador.</p>
+  <div class="alert alert-info py-4 text-center">
+    <i class="fas fa-info-circle mb-2" style="font-size: 24px;"></i><br>
+    Todavía no hay revisiones ni observaciones registradas en el historial de este amortiguador.
+  </div>
   {% endif %}
   
-
-  <a href="/detalle_pedido/{{ id_pedido }}" class="btn btn-primary mt-3">Volver</a>
+  <!-- Usando la etiqueta url de Django que es más segura que poner la ruta a mano -->
+  <a href="{% url 'detalle_pedido' id_pedido %}" class="btn btn-outline-secondary mt-3">
+    <i class="fas fa-arrow-left"></i> Volver al Pedido
+  </a>
 
 </div>
 {% endblock %}

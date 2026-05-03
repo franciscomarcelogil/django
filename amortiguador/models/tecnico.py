@@ -31,16 +31,20 @@ class Tarea(models.Model):
   def limpiar_materiales_al_cambiar_a_control(self):
         self.materialtarea_set.all().delete()
 
-class Observacion (models.Model):
-  tarea = models.ForeignKey(Tarea, on_delete=models.CASCADE)
-  amortiguador = models.ForeignKey(Amortiguador, on_delete=models.CASCADE)
-  fechaobservacion= models.DateField(auto_now_add=True)
-  horaobservacion = models.TimeField(auto_now_add=True)
-  tipoobservacion = models.CharField(max_length=100)
-  infoobservacion = models.TextField(blank = True, null=True)
-  valordiagrama = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
 
-  class Meta:
-    constraints = [
-      models.UniqueConstraint(fields=['tarea', 'tipoobservacion'], name='unique_observacion_por_tipo_tarea')
-    ]
+
+
+class Observacion(models.Model):
+    tarea = models.OneToOneField('Tarea', on_delete=models.CASCADE, related_name='observacion')
+    amortiguador = models.ForeignKey('Amortiguador', on_delete=models.CASCADE)
+    fecha = models.DateTimeField(auto_now_add=True)
+    
+    # Campos de control lógico (necesarios para el if/else en vistas y templates)
+    sugerencia_tecnica = models.CharField(max_length=20, choices=[('control', 'Control'), ('reparacion', 'Reparación')], blank=True, null=True)
+    valor_diagrama = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    
+    # 1. El campo que el operario llena a mano en el formulario
+    detalle_operario = models.TextField(blank=True, null=True)
+    
+    # 2. El campo automático que concatena la sugerencia y la lista de materiales
+    detalle_autogenerado = models.TextField(blank=True, null=True)
