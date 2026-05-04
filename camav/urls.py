@@ -30,8 +30,13 @@ urlpatterns = [
    
 
     path('tarea/<int:tarea_id>/observacion/', views.crear_o_editar_observacion, name='crear_o_editar_observacion'),
+    path('inventario/control/', views.control_inventario, name='control_inventario'),
 
-    path('listapedidosrevisados/', views.listapedidosrevisados, name='listapedidosrevisados'),
+
+    path('fichas/', views.lista_fichas, name='lista_fichas'),
+    path('fichas/<int:ficha_id>/', views.detalle_ficha, name='detalle_ficha'),
+
+    path('listapedidos/', views.listapedidos, name='listapedidos'),
     path('panel_notificaciones/', views.panel_notificaciones, name='panel_notificaciones'),
     path('historial_amortiguador/<int:tarea_id>/', views.historial_amortiguador, name='historial_amortiguador'),
     path('login/', RedirectView.as_view(url='/accounts/login/', permanent=False)),

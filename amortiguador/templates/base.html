@@ -30,16 +30,19 @@
                 <li class="nav-item">
                   <a class="nav-link" href="{% url 'home' %}">Inicio</a>
                 </li>
+              
                 <li class="nav-item">
-                  <a class="nav-link" href="{% url 'createpedido' %}">Crear pedido</a>
-                </li>
-                <li class="nav-item">
-                  <a class="nav-link" href="{% url 'listapedidosrevisados' %}">Pedidos revisados</a>
+                  <a class="nav-link" href="{% url 'listapedidos' %}">Pedidos</a>
                 </li>
                 <li class="nav-item">
                   <a class="nav-link" href="{% url 'panel_notificaciones' %}">Notificaciones stock</a>
                 </li>
-                
+                <li class="nav-item">
+                  <a class="nav-link" href="{% url 'lista_fichas' %}">Fichas técnicas</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="{% url 'control_inventario' %}">Control de inventario</a>
+                </li>
 
               {% elif request.user.operario.role == 'operario' %}
                 <li class="nav-item">

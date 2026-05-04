@@ -2,7 +2,7 @@
 
 {% block content %}
 <div class="container mt-4">
-  <div class="card shadow-sm">
+  <div class="card mb-4">
     <div class="card-body">
       {% if messages %}
       <div class="mb-3">
@@ -17,7 +17,7 @@
       <div class="d-flex justify-content-between align-items-start mb-3">
         <div>
           <h3 class="mb-0">Detalle del Pedido</h3>
-          <small class="text-muted">ID: {{ pedido.id }} &nbsp; • &nbsp; Cliente: {{ pedido.cliente.nombre }}</small>
+          <small class="text-muted">ID: {{ pedido.id }} &nbsp; • &nbsp; Cliente: {{ pedido.cliente.nombre }} {{ pedido.cliente.apellido }}</small>
         </div>
         <div class="text-end">
           <span class="badge {% if pedido.estado == 'pendiente' %}bg-warning text-dark{% elif pedido.estado == 'revisado' %}bg-success{% elif pedido.estado == 'terminado' %}bg-primary{% elif pedido.estado == 'listo para retirar' %}bg-info text-dark{% else %}bg-secondary{% endif %}">{{ pedido.estado }}</span>
@@ -30,12 +30,13 @@
       <div class="row g-3">
         {% for tarea in tareas %}
         <div class="col-12">
+          <!-- Usamos el card normal para que tu CSS le aplique el border-radius de 18px -->
           <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center bg-dark text-white">
+            <div class="card-header d-flex justify-content-between align-items-center">
               <div class="fw-bold">Serie: {{ tarea.amortiguador.nroSerieamortiguador }}</div>
               <div>
                 <span class="badge bg-info text-dark me-1">Prioridad: {{ tarea.prioridad }}</span>
-                <span class="badge bg-info text-dark me-1">tipo: {{ tarea.tipoTarea }}</span>
+                <span class="badge bg-light text-dark border me-1">Tipo: {{ tarea.tipoTarea|default:'-' }}</span>
                 <span class="badge {% if tarea.estado == 'revisada' %}bg-success{% elif tarea.estado == 'por reparar' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ tarea.estado }}</span>
               </div>
             </div>
@@ -46,12 +47,11 @@
                   <p class="mb-0 text-muted small">Legajo: {{ tarea.operario.legajo }}</p>
                 </div>
                 <div class="d-flex gap-2">
-                  
-                  <a href="/historial_amortiguador/{{ tarea.id }}/" class="btn btn-primary btn-sm">Ver historial</a>
+                  <a href="{% url 'historial_amortiguador' tarea.id %}" class="btn btn-primary btn-sm">Ver historial</a>
 
-                  {% if pedido.estado == 'revisado' or pedido.estado == 'por reparar' %}
+                  {% if pedido.estado == 'revisado' or pedido.estado == 'por reparar' or pedido.estado == 'en curso' or pedido.estado == 'terminado' and control %}
                     {% if tarea.estado == 'revisada' or tarea.estado == 'por reparar' or tarea.estado == 'no revisada' %}
-                    <a href="/detalle_tarea/{{ tarea.id }}/" class="btn btn-outline-secondary btn-sm">Gestionar tarea</a>
+                    <a href="{% url 'detalle_tarea' tarea.id %}" class="btn btn-outline-secondary btn-sm">Gestionar tarea</a>
                     {% endif %}
                   {% endif %}
                 </div>
@@ -66,12 +66,13 @@
         {% endfor %}
       </div>
 
+      <!-- PRESUPUESTO DE REPARACIÓN -->
       {% if pedido.estado == 'revisado' and not control and todastareasrevisadas %}
-      <div class="card mt-4 shadow-sm">
-        <div class="card-header border-bottom-0">
+      <div class="card mt-4">
+        <div class="card-header">
           <h5 class="mb-0">Presupuesto Estimado</h5>
         </div>
-        <div class="card-body pt-0">
+        <div class="card-body pt-3">
           <div class="row mb-4">
             <div class="col-md-6">
               <small class="text-muted d-block mb-2">Monto Total</small>
@@ -81,6 +82,7 @@
           </div>
           
           <div class="table-responsive">
+            <!-- Esta es tu tabla con clases personalizadas de tu CSS -->
             <table class="table table-presupuesto">
               <thead>
                 <tr>
@@ -92,7 +94,6 @@
               </thead>
               <tbody>
                 {% if desglose_presupuesto %}
-                  <!-- Revisión -->
                   <tr class="row-revision">
                     <td><span class="label-bold">Revisión de tareas</span></td>
                     <td>{{ desglose_presupuesto.num_tareas }}</td>
@@ -100,7 +101,6 @@
                     <td><span class="value-bold">${{ desglose_presupuesto.precio_revision_total|floatformat:2 }}</span></td>
                   </tr>
                   
-                  <!-- Materiales agrupados -->
                   {% for material in desglose_presupuesto.desglose_materiales %}
                   <tr class="row-material">
                     <td>{{ material.material }}</td>
@@ -114,7 +114,6 @@
                   </tr>
                   {% endfor %}
                   
-                  <!-- Mano de obra -->
                   {% if desglose_presupuesto.total_mano_obra > 0 %}
                   <tr class="row-mano-obra">
                     <td><span class="label-bold">Mano de obra</span></td>
@@ -124,7 +123,6 @@
                   </tr>
                   {% endif %}
                   
-                  <!-- Totales parciales y general -->
                   <tr class="row-subtotal">
                     <td><span class="label-bold">Subtotal Materiales</span></td>
                     <td colspan="2"></td>
@@ -155,24 +153,36 @@
       </div>
       {% endif %}
 
-      {% if pedido.estado == 'revisado' and  control %}
-      {% if desglose_presupuesto %}
-                  <!-- Revisión -->
-                  <tr class="row-revision">
-                    <td><span class="label-bold">Revisión de tareas</span></td>
-                    <td>{{ desglose_presupuesto.num_tareas }}</td>
-                    <td>${{ desglose_presupuesto.precio_revision_unitario|floatformat:2 }}</td>
-                    <td><span class="value-bold">${{ desglose_presupuesto.precio_revision_total|floatformat:2 }}</span></td>
-                  </tr>
+      <!-- PRESUPUESTO SOLO CONTROL -->
+      {% if pedido.estado == 'revisado' and control %}
+      <div class="card mt-4">
+        <div class="card-header">
+           <h5 class="mb-0">Costo de Revisión (Control)</h5>
+        </div>
+        <div class="card-body">
+          <table class="table table-presupuesto">
+             <tbody>
+              {% if desglose_presupuesto %}
+                <tr class="row-revision">
+                  <td><span class="label-bold">Revisión de tareas</span></td>
+                  <td>{{ desglose_presupuesto.num_tareas }}</td>
+                  <td>${{ desglose_presupuesto.precio_revision_unitario|floatformat:2 }}</td>
+                  <td><span class="value-bold">${{ desglose_presupuesto.precio_revision_total|floatformat:2 }}</span></td>
+                </tr>
+              {% endif %}
+             </tbody>
+          </table>
+          <div class="mt-3">
+            <form method="post" class="d-inline">
+              {% csrf_token %}
+              <button type="submit" name="accion" value="marcar_listo_retirar" class="btn btn-warning">Listo para retirar</button>
+            </form>
+          </div>
+        </div>
+      </div>
       {% endif %}
 
-      <form method="post" class="d-inline">
-            {% csrf_token %}
-            <button type="submit" name="accion" value="marcar_listo_retirar" class="btn btn-warning btn-sm">Listo para retirar</button>
-          </form>
-
-      {% endif %}
-
+      <!-- ACCIONES DEL PEDIDO Y BOTONES -->
       <div class="mt-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div>
           {% if pedido.estado == 'pendiente' %}
@@ -181,26 +191,19 @@
             <input type="hidden" name="accion" value="crear_tarea" />
             <button type="submit" class="btn btn-outline-primary btn-sm">Crear nueva tarea</button>
           </form>
-          <form method="post" class="d-inline">
-            {% csrf_token %}
-            <input type="hidden" name="accion" value="borrar_pedido" />
-            <button type="submit" class="btn btn-outline-primary btn-sm">Borrar pedido</button>
-          </form>
-
+          <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#modalSalirSinGuardar">Borrar pedido</button>
           {% endif %}
+          
           {% if pedido.estado == 'pendiente' and tareas %}
-          <form method="post" class="d-inline">
+          <form method="post" class="d-inline ms-2">
               {% csrf_token %}
               <input type="hidden" name="accion" value="finalizar_creacion_pedido">
-              <button type="submit" class="btn btn-success">
-                  Confirmar: Todas las tareas asignadas
-              </button>
+              <button type="submit" class="btn btn-success">Confirmar: Todas las tareas asignadas</button>
           </form>
           {% endif %}
 
-
           {% if pedido.fechaSalidaEstimada and pedido.estado != 'revisado' and pedido.estado != 'por reparar' %}
-          <div class="small text-muted mt-2">Fecha limite estimada: {{ pedido.fechaSalidaEstimada|date:'d/m/Y' }}</div>
+          <div class="small text-muted mt-2">Fecha límite estimada: {{ pedido.fechaSalidaEstimada|date:'d/m/Y' }}</div>
           {% endif %}
         </div>
 
@@ -227,15 +230,15 @@
           </form>
           <form method="post" class="d-inline">
             {% csrf_token %}
-            <button type="submit" name="accion" value="retirar_pedido" class="btn btn-primary btn-sm">retirar pedido</button>
+            <button type="submit" name="accion" value="retirar_pedido" class="btn btn-success btn-sm">Retirar pedido</button>
           </form>
-
           {% endif %}
         </div>
       </div>
 
+      <!-- EDICION PLAN DE PEDIDO -->
       {% if pedido.estado == 'por reparar' %}
-      <div class="card mt-3">
+      <div class="card mt-4">
         <div class="card-body">
           <h6 class="card-title mb-3">Fecha límite del pedido</h6>
           <form action="" method="post" class="row g-2 align-items-end">
@@ -243,14 +246,7 @@
             <input type="hidden" name="accion" value="actualizar_plan" />
             <div class="col-sm-6 col-md-4">
               <label for="fecha_limite" class="form-label mb-1">Fecha límite</label>
-              <input
-                type="date"
-                id="fecha_limite"
-                name="fecha_limite"
-                value="{% if pedido.fechaSalidaEstimada %}{{ pedido.fechaSalidaEstimada|date:'Y-m-d' }}{% endif %}"
-                class="form-control form-control-sm"
-                required
-              />
+              <input type="date" id="fecha_limite" name="fecha_limite" value="{% if pedido.fechaSalidaEstimada %}{{ pedido.fechaSalidaEstimada|date:'Y-m-d' }}{% endif %}" class="form-control form-control-sm" required />
             </div>
             <div class="col-sm-6 col-md-3">
               <button type="submit" class="btn btn-primary btn-sm">Guardar fecha límite</button>
@@ -261,23 +257,22 @@
       {% endif %}
 
       {% if editar_plan %}
-      <div class="card mt-3">
+      <div class="card mt-4">
         <div class="card-body">
           <h6 class="card-title mb-3">Cambios del plan del pedido</h6>
-
           {% if tareas_reparacion_editables %}
           <hr />
-          <p class="mb-2 text-muted small">Para ajustar materiales maximos por tarea, entra a cada tarea de reparacion:</p>
+          <p class="mb-2 text-muted small">Para ajustar materiales máximos por tarea, entra a cada tarea de reparación:</p>
           <div class="d-flex flex-wrap gap-2">
             {% for tarea_editable in tareas_reparacion_editables %}
-            <a href="/detalle_tarea/{{ tarea_editable.id }}/" class="btn btn-outline-secondary btn-sm">
+            <a href="{% url 'detalle_tarea' tarea_editable.id %}" class="btn btn-outline-secondary btn-sm">
               Editar materiales tarea #{{ tarea_editable.id }}
             </a>
             {% endfor %}
           </div>
           {% else %}
           <hr />
-          <div class="alert alert-info py-2 mb-0">No hay tareas de reparacion en estado por reparar para modificar materiales.</div>
+          <div class="alert alert-info py-2 mb-0">No hay tareas de reparación en estado por reparar para modificar materiales.</div>
           {% endif %}
           
           <hr />
@@ -292,39 +287,37 @@
       </div>
       {% endif %}
 
-      {% if pedido.estado == 'pendiente' %}
-          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#modalSalirSinGuardar">
-              Volver
-          </button>
-      {% else %}
-          <a href="/" class="btn btn-outline-secondary btn-sm">Volver</a>
-      {% endif %}
-
-         
+      <div class="mt-4">
+        {% if pedido.estado == 'pendiente' %}
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#modalSalirSinGuardar">Volver</button>
+        {% else %}
+            <a href="{% url 'home' %}" class="btn btn-outline-secondary btn-sm">Volver</a>
+        {% endif %}
+      </div>
     </div>
   </div>
 </div>
 
-<div class="modal " id="modalSalirSinGuardar" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h5 class="modal-title">¿Salir sin guardar?</h5>
-              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-              <p>Si sales ahora sin confirmar las asignaciones, <strong>se borrará el pedido y todas las tareas</strong> que creaste.</p>
-            </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Continuar editando</button>
-              <form method="post" action="{% url 'detalle_pedido' pedido.id %}">
-                {% csrf_token %}
-                <input type="hidden" name="accion" value="borrar_pedido">
-                <button type="submit" class="btn btn-danger">Confirmar y Borrar todo</button>
-              </form>
-            </div>
-          </div>
-        </div>
-      </div>   
-
+<!-- Modal Salir sin guardar -->
+<div class="modal fade" id="modalSalirSinGuardar" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">¿Salir sin guardar?</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>Si sales ahora sin confirmar las asignaciones, <strong>se borrará el pedido y todas las tareas</strong> que creaste.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Continuar editando</button>
+        <form method="post" action="{% url 'detalle_pedido' pedido.id %}">
+          {% csrf_token %}
+          <input type="hidden" name="accion" value="borrar_pedido">
+          <button type="submit" class="btn btn-danger">Confirmar y Borrar todo</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>   
 {% endblock %}

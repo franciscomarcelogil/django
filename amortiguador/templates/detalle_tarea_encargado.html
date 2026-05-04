@@ -2,7 +2,7 @@
 
 {% block content %}
 <div class="container mt-4">
-  <div class="card shadow-sm">
+  <div class="card mb-4">
     <div class="card-header d-flex justify-content-between align-items-center">
       <div>
         <h5 class="mb-0">Tarea #{{ tarea.id }}</h5>
@@ -22,98 +22,69 @@
         {% endfor %}
       {% endif %}
 
-      <h6 class="card-subtitle mb-3 text-primary fw-bold text-uppercase border-bottom pb-2">Diagnóstico del Operario</h6>
+      <h5 class="card-subtitle mb-3">Diagnóstico del Operario</h5>
       
-      <!-- NUEVO BLOQUE DE OBSERVACIÓN ÚNICA -->
-      <div class="card bg-light mb-4 border-0 shadow-sm">
+      <div class="card mb-4">
         <div class="card-body">
           {% if observacion %}
             <div class="row">
-              <!-- Información Física y Sugerencia -->
-              <div class="col-md-6 border-end border-secondary-subtle">
-                <div class="mb-2">
-                  <strong>Sugerencia Técnica:</strong> 
-                  <span class="badge bg-dark">{{ observacion.sugerencia_tecnica|upper }}</span>
-                </div>
-                <div class="mb-2">
-                  <strong class="text-muted"><i class="fas fa-comment-dots"></i> Comentarios del Operario:</strong>
-                  <p class="mb-0 mt-1 small bg-white p-2 rounded border">{{ observacion.detalle_operario|default:'Sin comentarios adicionales.'|linebreaksbr }}</p>
-                </div>
-                <div class="small text-muted mt-2">
-                  <i class="far fa-clock"></i> {{ observacion.fecha }}
-                </div>
-              </div>
-
-              <!-- Información de Diagrama y Auditoría Automática -->
-              <div class="col-md-6 ps-3">
-                <div class="mb-3">
-                  <strong>Valor Diagrama:</strong> {{ observacion.valor_diagrama|default:'-' }}
+              <div class="col-md-6">
+                <p class="mb-2"><strong>Sugerencia Técnica:</strong> <span class="badge bg-secondary">{{ observacion.sugerencia_tecnica|upper }}</span></p>
+                <p class="mb-2"><strong>Valor Diagrama:</strong> {{ observacion.valor_diagrama|default:'-' }}
                   {% if observacion.valor_diagrama %}
-                    <br><small class="text-muted">Rango esperado: {{ tarea.amortiguador.fichaamortiguador.valor_minimo }} - {{ tarea.amortiguador.fichaamortiguador.valor_maximo }}</small><br>
                     {% if observacion.valor_diagrama >= tarea.amortiguador.fichaamortiguador.valor_minimo and observacion.valor_diagrama <= tarea.amortiguador.fichaamortiguador.valor_maximo %}
-                      <span class="badge bg-success mt-1">Aceptable</span>
+                      <span class="badge bg-success ms-1">Aceptable</span>
                     {% else %}
-                      <span class="badge bg-danger mt-1">No Aceptable</span>
+                      <span class="badge bg-danger ms-1">No Aceptable</span>
                     {% endif %}
                   {% endif %}
-                </div>
-                
-                <!-- Auditoría generada por el sistema -->
-                <div>
-                  <strong class="text-primary"><i class="fas fa-robot"></i> Registro del Sistema:</strong>
-                  <div class="font-monospace small bg-white p-2 rounded border mt-1" style="white-space: pre-wrap;">{{ observacion.detalle_autogenerado }}</div>
-                </div>
+                </p>
+                <p class="mb-1 mt-3"><strong>Comentarios del Operario:</strong></p>
+                <p class="small text-muted">{{ observacion.detalle_operario|default:'Sin comentarios adicionales.'|linebreaksbr }}</p>
+              </div>
+              <div class="col-md-6">
+                <p class="mb-1"><strong>Registro del Sistema:</strong></p>
+                <div class="small text-muted font-monospace" style="white-space: pre-wrap; background: rgba(0,0,0,0.03); padding: 10px; border-radius: 8px;">{{ observacion.detalle_autogenerado }}</div>
+                <div class="small text-muted mt-2">Fecha de registro: {{ observacion.fecha }}</div>
               </div>
             </div>
           {% else %}
-            <div class="text-center text-muted py-3">
-              <i class="fas fa-clipboard text-secondary mb-2" style="font-size: 24px;"></i><br>
-              El operario aún no ha cargado el diagnóstico para esta tarea.
-            </div>
+            <p class="text-muted mb-0">El operario aún no ha cargado el diagnóstico para esta tarea.</p>
           {% endif %}
         </div>
       </div>
 
       {% if tarea.estado == 'no revisada' or tarea.estado == 'revisada' or tarea.estado == 'por reparar' %}
-      <div class="alert alert-warning small py-2 mb-3">
-        <i class="fas fa-exclamation-triangle"></i> Si cambias el tipo de tarea, se eliminan los materiales guardados y se deben volver a definir.
-      </div>
-      {% endif %}
-
-      <!-- FORMULARIO DE APROBACIÓN DEL ENCARGADO -->
-      {% if tarea.estado == 'no revisada' or tarea.estado == 'revisada' or tarea.estado == 'por reparar' %}
-      <div class="card mb-3 border-primary">
-        <div class="card-header bg-primary text-white fw-bold">
-          Decisión del Encargado y Aprobación de Materiales
-        </div>
+      <p class="small text-muted mb-3">Si cambias el tipo de tarea, se eliminan los materiales guardados y se deben volver a definir.</p>
+      
+      <div class="card mb-3">
         <div class="card-body">
+          <h6 class="card-title">Decisión del Encargado y Aprobación de Materiales</h6>
           <form action="" method="post">
             {% csrf_token %}
             <div class="d-flex align-items-center mb-3">
-              <label class="me-2 mb-0 fw-bold">Definir Tipo Final:</label>
-              <!-- Por defecto, seleccionamos lo que sugirió el operario o lo que ya estaba -->
-              <select id="tipoTareaSelect" name="tipoTarea" class="form-select form-select-sm me-2 fw-bold" style="width: 200px;">
-                <!-- Usamos estrictamente el estado actual de la tarea (tarea.tipoTarea) -->
+              <label class="me-2 mb-0">Definir Tipo Final:</label>
+              <select id="tipoTareaSelect" name="tipoTarea" class="form-select form-select-sm me-2" style="width: 200px;">
                 <option value="control" {% if tarea.tipoTarea == 'control' %}selected{% endif %}>Control</option>
                 <option value="reparacion" {% if tarea.tipoTarea == 'reparacion' %}selected{% endif %}>Reparación</option>
               </select>
             </div>
 
             <div id="tablaMateriales" class="table-responsive">
-              <table class="table table-sm table-hover align-middle border">
+              <table class="table table-sm table-hover align-middle">
                 <thead class="table-light">
                   <tr>
                     <th>Material</th>
-                    <th class="text-center">Máximo (Ficha)</th>
-                    <th style="width: 180px;">Cantidad Aprobada</th>
+                    <th>Máximo (Ficha)</th>
+                    <th>Cantidad Aprobada</th>
                   </tr>
                 </thead>
                 <tbody>
                   {% for mat in materiales_sugeribles %}
                   <tr>
                     <td>{{ mat.material_tipo }}</td>
-                    <td class="text-center text-muted">{{ mat.cantidad_maxima }}</td>
-                    <td>
+                    <td>{{ mat.cantidad_maxima }}</td>
+                    <td style="width: 180px;">
                       <input type="hidden" name="material_id[]" value="{{ mat.material_id }}" />
                       <input type="hidden" name="tarea_id" value="{{ tarea.id }}" />
                       <input type="number" name="cantidadrecomendada[]" min="0" max="{{ mat.cantidad_maxima }}" placeholder="Cantidad" value="{{ mat.cantidad_sugerida }}" required class="form-control form-control-sm" />
@@ -122,39 +93,32 @@
                   {% endfor %}
                 </tbody>
               </table>
-              <small class="text-muted mb-2 d-block">Ajuste las cantidades que el operario sugirió antes de guardar.</small>
             </div>
-            
-            <button type="submit" name="accion" value="guardar_tipo_materiales" class="btn btn-primary">
-              <i class="fas fa-save"></i> Guardar Decisión y Materiales
-            </button>
+            <button type="submit" name="accion" value="guardar_tipo_materiales" class="btn btn-primary btn-sm">Guardar Decisión</button>
           </form>
         </div>
       </div>
       {% endif %}
 
-      <!-- MATERIALES FINALIZADOS -->
       {% if materialxtarea and tarea.pedido.estado == 'terminado' %}
-      <div class="card mb-3 border-success">
-        <div class="card-header bg-success text-white">
-          <h6 class="card-title mb-0">Consumo Real Registrado (Tarea Finalizada)</h6>
-        </div>
-        <div class="card-body p-0">
+      <div class="card mb-3">
+        <div class="card-body">
+          <h6 class="card-title">Consumo Real Registrado</h6>
           <div class="table-responsive">
-            <table class="table table-sm table-striped mb-0">
+            <table class="table table-sm table-bordered">
               <thead class="table-light">
                 <tr>
-                  <th class="ps-3">Material</th>
-                  <th class="text-center">Cantidad Reservada (Máx)</th>
-                  <th class="text-center text-success">Cantidad Usada Real</th>
+                  <th>Material</th>
+                  <th>Cantidad Reservada</th>
+                  <th>Cantidad Usada Real</th>
                 </tr>
               </thead>
               <tbody>
                 {% for mat in materialxtarea %}
                 <tr>
-                  <td class="ps-3">{{ mat.material.tipo }}</td>
-                  <td class="text-center">{{ mat.stockrecomendado }}</td>
-                  <td class="text-center fw-bold text-success">{{ mat.stockusado|default:'-' }}</td>
+                  <td>{{ mat.material.tipo }}</td>
+                  <td>{{ mat.stockrecomendado }}</td>
+                  <td>{{ mat.stockusado|default:'-' }}</td>
                 </tr>
                 {% endfor %}
               </tbody>
@@ -164,17 +128,12 @@
       </div>
       {% endif %}
 
-      <div class="mt-3">
-        <a href="{% url 'detalle_pedido' tarea.pedido.id %}" class="btn btn-outline-secondary">
-          <i class="fas fa-arrow-left"></i> Volver al pedido
-        </a>
-      </div>
+      <a href="{% url 'detalle_pedido' tarea.pedido.id %}" class="btn btn-outline-secondary mt-2">Volver al pedido</a>
     </div>
   </div>
 </div>
 
 <script>
-  // Mostrar/ocultar tabla de materiales según el tipo de tarea
   const tipoTareaSelect = document.getElementById('tipoTareaSelect');
   const tablaMateriales = document.getElementById('tablaMateriales');
 
@@ -183,16 +142,12 @@
       tablaMateriales.style.display = 'block';
     } else {
       tablaMateriales.style.display = 'none';
-      // Limpiar los inputs si el encargado decide que es solo Control
       const inputs = tablaMateriales.querySelectorAll('input[type="number"]');
       inputs.forEach(input => input.value = 0);
     }
   }
 
-  // Ejecutar al cargar la página
   toggleTableMateriales();
-
-  // Ejecutar cuando cambia el select
   tipoTareaSelect.addEventListener('change', toggleTableMateriales);
 </script>
 {% endblock %}
