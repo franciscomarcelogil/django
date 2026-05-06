@@ -16,3 +16,4 @@ class Pedido(models.Model):
   fechaSalidaReal = models.DateField(blank=True, null=True)
   cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE)
   total_estimado = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+  cancelado = models.BooleanField(default=False)

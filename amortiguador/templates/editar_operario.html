@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-6 mx-auto">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-warning text-dark">
+                    <h4 class="mb-0"><i class="bi bi-pencil"></i> Editar Operario</h4>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Legajo</label>
+                            <input type="text" class="form-control" value="{{ operario.legajo }}" disabled>
+                            <small class="text-muted">No se puede modificar</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Nombre</label>
+                            <input type="text" name="nombre" class="form-control" value="{{ operario.nombre }}" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Apellido</label>
+                            <input type="text" name="apellido" class="form-control" value="{{ operario.apellido }}" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Estado</label>
+                            <select name="estado" class="form-select" required>
+                                <option value="activo" {% if operario.estado == 'activo' %}selected{% endif %}>Activo</option>
+                                <option value="inactivo" {% if operario.estado == 'inactivo' %}selected{% endif %}>Inactivo</option>
+                                <option value="licencia" {% if operario.estado == 'licencia' %}selected{% endif %}>Licencia</option>
+                            </select>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-success w-100">
+                                <i class="bi bi-check-circle"></i> Guardar Cambios
+                            </button>
+                            <a href="{% url 'lista_operarios' %}" class="btn btn-outline-secondary w-100">
+                                <i class="bi bi-x-circle"></i> Cancelar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

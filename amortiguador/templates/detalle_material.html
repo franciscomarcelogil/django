@@ -1,0 +1,256 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <a href="{% url 'control_inventario' %}" class="btn btn-outline-secondary btn-sm mb-3">&larr; Volver al Inventario</a>
+    
+    <div class="row g-4">
+        <div class="col-md-5">
+            <div class="card shadow-sm border-0 bg-white mb-4">
+                <div class="card-header bg-dark">
+                    <h5 class="mb-0  text-white">Material: {{ material.nombre }}</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        {% csrf_token %}
+                        <input type="hidden" name="accion" value="editar_material">
+                        
+                        <div class="mb-3">
+                            <label>Stock Actual (Disponible):</label>
+                            <h3 class="{% if material.stockActual < material.stockMinimo %}text-danger{% else %}text-success{% endif %}">
+                                {{ material.stockActual }} {{ material.unidad }}s
+                            </h3>
+                            <small class="text-muted">Reservado en pedidos: {{ material.stockreservado }}</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Stock Mínimo</label>
+                            <input type="number" name="stock_minimo" class="form-control" value="{{ material.stockMinimo }}">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Costo Promedio (Automático)</label>
+                            <input type="text" class="form-control bg-light" value="${{ material.costo_unidad }}" readonly>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Precio de Venta Sugerido al Público ($)</label>
+                            <input type="number" step="0.01" name="precio_venta" class="form-control border-success" value="{{ material.precio_venta|stringformat:'f' }}">
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100">Actualizar Datos</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-7">
+            <div class="card shadow-sm border-0 mb-4 bg-light">
+                <div class="card-body">
+                    <h5 class="fw-bold text-success mb-3"><i class="bi bi-cart-plus"></i> Cargar Nueva Compra</h5>
+                    
+                    <!-- SECCIÓN 1: Búsqueda de Proveedor -->
+                    <div id="busqueda-proveedor" class="mb-4">
+                        <div class="row g-2">
+                            <div class="col-md-8">
+                                <label class="small fw-bold">CUIT Proveedor</label>
+                                <input type="text" id="cuit_input" class="form-control" placeholder="Ej: 30111111118">
+                            </div>
+                            <div class="col-md-4 d-flex align-items-end">
+                                <button type="button" id="btn_buscar" class="btn btn-outline-primary w-100">Buscar</button>
+                            </div>
+                        </div>
+                        <div id="estado-busqueda" class="mt-2"></div>
+                    </div>
+
+                    <!-- SECCIÓN 2: Datos del Proveedor (Se muestra si lo encuentra) -->
+                    <div id="proveedor-encontrado" class="mb-4" style="display: none;">
+                        <div class="alert alert-success" role="alert">
+                            <strong id="nombre_prov_encontrado"></strong><br>
+                            <small>CUIT: <span id="cuit_encontrado"></span></small><br>
+                            <small>Teléfono: <span id="telefono_encontrado"></span></small>
+                        </div>
+                        <input type="hidden" id="proveedor_id" value="">
+                    </div>
+
+                    <!-- SECCIÓN 3: Formulario para Crear Proveedor (Se muestra si NO lo encuentra) -->
+                    <div id="formulario-nuevo-proveedor" style="display: none;">
+                        <div class="alert alert-warning" role="alert">
+                            <strong>Proveedor no encontrado</strong> - Complete los datos para registrarlo
+                        </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-12">
+                                <label class="small fw-bold">Nombre Empresa</label>
+                                <input type="text" id="nombre_prov_nuevo" class="form-control" placeholder="Razón Social" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="small fw-bold">Teléfono</label>
+                                <input type="text" id="telefono_prov_nuevo" class="form-control" placeholder="Ej: 1123456789">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="small fw-bold">Email (Opcional)</label>
+                                <input type="email" id="email_prov_nuevo" class="form-control" placeholder="email@empresa.com">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECCIÓN 4: Formulario de Compra (Se muestra después de seleccionar/crear proveedor) -->
+                    <form id="formulario-compra" method="POST" style="display: none;">
+                        {% csrf_token %}
+                        <input type="hidden" name="accion" value="cargar_compra">
+                        <input type="hidden" name="cuit_proveedor" id="cuit_hidden">
+                        <input type="hidden" name="nombre_prov" id="nombre_prov_hidden">
+                        <input type="hidden" name="telefono_prov" id="telefono_prov_hidden">
+                        
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <label class="small fw-bold">Cantidad Ingresada</label>
+                                <input type="number" name="cantidad" id="cantidad" class="form-control" min="1" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="small fw-bold">Costo Unitario ($)</label>
+                                <input type="number" step="0.01" name="costo_unitario" id="costo_unitario" class="form-control" required>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <button type="submit" class="btn btn-success w-100">Registrar Ingreso</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <h5 class="fw-bold text-secondary">Historial de Compras</h5>
+            <div class="table-responsive bg-white rounded shadow-sm border">
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Proveedor</th>
+                            <th>Cant.</th>
+                            <th>Costo Unit.</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in historial_compras %}
+                        <tr>
+                            <td>{{ c.fecha_compra|date:"d/m/y" }}</td>
+                            <td>{{ c.proveedor.nombre }}</td>
+                            <td><span class="badge bg-success">+{{ c.cantidad }}</span></td>
+                            <td>${{ c.costo_unitario }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4" class="text-center text-muted">No hay compras registradas.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const cuitInput = document.getElementById('cuit_input');
+    const btnBuscar = document.getElementById('btn_buscar');
+    const estadoBusqueda = document.getElementById('estado-busqueda');
+    const proveedorEncontrado = document.getElementById('proveedor-encontrado');
+    const formularioNuevoProveedor = document.getElementById('formulario-nuevo-proveedor');
+    const formularioCompra = document.getElementById('formulario-compra');
+    
+    let proveedorActual = null;
+
+    // Buscar proveedor
+    btnBuscar.addEventListener('click', function() {
+        const cuit = cuitInput.value.trim();
+        
+        if (!cuit) {
+            estadoBusqueda.innerHTML = '<div class="alert alert-danger alert-sm" role="alert">Ingrese un CUIT</div>';
+            return;
+        }
+
+        estadoBusqueda.innerHTML = '<div class="alert alert-info alert-sm" role="alert">Buscando...</div>';
+
+        fetch('{% url "buscar_proveedor_api" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: 'cuit=' + encodeURIComponent(cuit)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.encontrado) {
+                // Proveedor encontrado
+                proveedorActual = data;
+                estadoBusqueda.innerHTML = '';
+                
+                // Mostrar datos del proveedor encontrado
+                document.getElementById('nombre_prov_encontrado').textContent = data.nombre;
+                document.getElementById('cuit_encontrado').textContent = data.cuit;
+                document.getElementById('telefono_encontrado').textContent = data.telefono || 'No disponible';
+                document.getElementById('proveedor_id').value = data.id;
+                
+                proveedorEncontrado.style.display = 'block';
+                formularioNuevoProveedor.style.display = 'none';
+                
+                // Llenar datos ocultos del formulario
+                document.getElementById('cuit_hidden').value = data.cuit;
+                document.getElementById('nombre_prov_hidden').value = data.nombre;
+                document.getElementById('telefono_prov_hidden').value = data.telefono || '';
+                
+                // Mostrar formulario de compra
+                formularioCompra.style.display = 'block';
+            } else {
+                // Proveedor no encontrado
+                proveedorActual = null;
+                estadoBusqueda.innerHTML = '';
+                
+                proveedorEncontrado.style.display = 'none';
+                formularioNuevoProveedor.style.display = 'block';
+                
+                // Limpiar campos del nuevo proveedor
+                document.getElementById('nombre_prov_nuevo').value = '';
+                document.getElementById('telefono_prov_nuevo').value = '';
+                document.getElementById('email_prov_nuevo').value = '';
+                
+                // Mostrar formulario de compra
+                formularioCompra.style.display = 'block';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            estadoBusqueda.innerHTML = '<div class="alert alert-danger alert-sm" role="alert">Error en la búsqueda</div>';
+        });
+    });
+
+    // Permitir buscar al presionar Enter
+    cuitInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            btnBuscar.click();
+        }
+    });
+
+    // Actualizar campos ocultos cuando cambian los datos del nuevo proveedor
+    document.getElementById('nombre_prov_nuevo').addEventListener('change', function() {
+        document.getElementById('nombre_prov_hidden').value = this.value;
+    });
+    
+    document.getElementById('telefono_prov_nuevo').addEventListener('change', function() {
+        document.getElementById('telefono_prov_hidden').value = this.value;
+    });
+
+    // Llenar CUIT en el campo oculto
+    cuitInput.addEventListener('change', function() {
+        document.getElementById('cuit_hidden').value = this.value;
+    });
+});
+</script>
+
+<style>
+.alert-sm {
+    padding: 0.5rem 0.75rem;
+    margin: 0;
+    font-size: 0.875rem;
+}
+</style>
+{% endblock %}

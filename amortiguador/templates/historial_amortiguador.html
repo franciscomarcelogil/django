@@ -5,17 +5,17 @@
     <h2 class="text-primary mb-0">Historial de Amortiguador: {{ amortiguador.nroSerieamortiguador }}</h2>
     <span class="badge bg-secondary fs-6">Ficha: {{ amortiguador.fichaamortiguador.descripcion }}</span>
   </div>
-
   {% if observaciones %}
   <div class="table-responsive">
     <table class="table table-hover table-bordered align-middle bg-white">
       <thead class="table-dark">
         <tr>
           <th style="width: 120px;">Fecha y Hora</th>
-          <th>Sugerencia</th>
+         
           <th class="text-center">Diagrama</th>
           <th>Comentarios del Operario</th>
           <th>Auditoría del Sistema (Registro)</th>
+          <th>Comentario Final</th>
         </tr>
       </thead>
       <tbody>
@@ -28,11 +28,7 @@
           </td>
           
           <!-- Sugerencia Técnica -->
-          <td>
-            <span class="badge {% if observacion.sugerencia_tecnica == 'reparacion' %}bg-dark{% else %}bg-secondary{% endif %}">
-              {{ observacion.sugerencia_tecnica|upper }}
-            </span>
-          </td>
+          
           
           <!-- Valor del Diagrama -->
           <td class="text-center fw-bold">
@@ -46,6 +42,11 @@
           
           <!-- Lo que autogeneró el sistema (inmutable) -->
           <td class="small font-monospace bg-light" style="white-space: pre-wrap; min-width: 280px;">{{ observacion.detalle_autogenerado }}</td>
+          
+          <!-- Comentario Final generado al finalizar -->
+          <td>
+            <span class="small">{{ observacion.comentariofinal|default:'-'|linebreaksbr }}</span>
+          </td>
         </tr>
         {% endfor %}
       </tbody>

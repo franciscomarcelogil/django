@@ -1,0 +1,141 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold">{{ operario.nombre }} {{ operario.apellido }}</h2>
+            <p class="text-muted small">Legajo: {{ operario.legajo }} | Estado: <span class="badge {% if operario.estado == 'activo' %}bg-success{% else %}bg-danger{% endif %}">{{ operario.estado }}</span></p>
+        </div>
+        <div>
+            <a href="{% url 'editar_operario' operario.id %}" class="btn btn-warning shadow-sm me-2">
+                <i class="bi bi-pencil"></i> Editar
+            </a>
+            <a href="{% url 'lista_operarios' %}" class="btn btn-outline-secondary shadow-sm">
+                <i class="bi bi-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Información del Operario -->
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Información Personal</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="small fw-bold text-muted">Nombre</label>
+                        <p class="mb-0">{{ operario.nombre }}</p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="small fw-bold text-muted">Apellido</label>
+                        <p class="mb-0">{{ operario.apellido }}</p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="small fw-bold text-muted">Legajo</label>
+                        <p class="mb-0"><span class="badge bg-secondary">{{ operario.legajo }}</span></p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="small fw-bold text-muted">Estado</label>
+                        <p class="mb-0">
+                            <span class="badge {% if operario.estado == 'activo' %}bg-success{% else %}bg-danger{% endif %}">
+                                {{ operario.estado }}
+                            </span>
+                        </p>
+                    </div>
+                    <div class="mb-0">
+                        <label class="small fw-bold text-muted">Rol</label>
+                        <p class="mb-0"><span class="badge bg-info">{{ operario.role }}</span></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tareas -->
+        <div class="col-md-8">
+            <!-- Tareas Pendientes -->
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="bi bi-exclamation-circle"></i> Tareas Pendientes ({{ tareas_pendientes.count }})</h5>
+                </div>
+                <div class="card-body">
+                    {% if tareas_pendientes %}
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>ID Tarea</th>
+                                    <th>Pedido</th>
+                                    <th>Amortiguador</th>
+                                    <th>Fecha Asignación</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for tarea in tareas_pendientes %}
+                                <tr>
+                                    <td><span class="badge bg-secondary">#{{ tarea.id }}</span></td>
+                                    <td>Pedido #{{ tarea.pedido.id }}</td>
+                                    <td>{{ tarea.amortiguador.tipo }}</td>
+                                    <td>{{ tarea.fechaAsignacion|date:"d/m/Y" }}</td>
+                                    <td>
+                                        <a href="{% url 'detalle_tarea' tarea.id %}" class="btn btn-sm btn-primary">
+                                            Ver
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center py-3">Sin tareas pendientes</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Tareas Por Reparar -->
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="bi bi-tools"></i> Tareas por Reparar ({{ tareas_por_reparar.count }})</h5>
+                </div>
+                <div class="card-body">
+                    {% if tareas_por_reparar %}
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>ID Tarea</th>
+                                    <th>Pedido</th>
+                                    <th>Amortiguador</th>
+                                    <th>Fecha Asignación</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for tarea in tareas_por_reparar %}
+                                <tr>
+                                    <td><span class="badge bg-secondary">#{{ tarea.id }}</span></td>
+                                    <td>Pedido #{{ tarea.pedido.id }}</td>
+                                    <td>{{ tarea.amortiguador.tipo }}</td>
+                                    <td>{{ tarea.fechaAsignacion|date:"d/m/Y" }}</td>
+                                    <td>
+                                        <a href="{% url 'detalle_tarea' tarea.id %}" class="btn btn-sm btn-primary">
+                                            Ver
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center py-3">Sin tareas por reparar</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

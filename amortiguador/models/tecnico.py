@@ -48,3 +48,6 @@ class Observacion(models.Model):
     
     # 2. El campo automático que concatena la sugerencia y la lista de materiales
     detalle_autogenerado = models.TextField(blank=True, null=True)
+    
+    # 3. Comentario final generado por el sistema al finalizar la tarea
+    comentariofinal = models.TextField(blank=True, null=True)

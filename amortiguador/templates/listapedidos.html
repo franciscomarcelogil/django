@@ -42,6 +42,8 @@
                             <th># ID</th>
                             <th>Cliente</th>
                             <th>DNI</th>
+                            <th>Fecha Ingreso</th>
+                            <th>Fecha Salida</th>
                             <th>Estado Actual</th>
                             <th class="text-end">Acciones</th>
                         </tr>
@@ -52,6 +54,8 @@
                             <td><span class="fw-bold">#{{ pedido.id }}</span></td>
                             <td>{{ pedido.cliente.nombre }} {{ pedido.cliente.apellido }}</td>
                             <td>{{ pedido.cliente.dni }}</td>
+                            <td>{{ pedido.fechaingreso }}</td>
+                            <td>{{ pedido.fechaSalidaReal|default:'-' }}</td>
                             <td>
                                 <span class="badge 
                                     {% if pedido.estado == 'en curso' %}bg-info

@@ -1,107 +1,89 @@
 {% extends 'base.html' %}
-
 {% block content %}
-<div class="container mt-3 bg-light p-4 rounded">
-  <div class="container mt-4">
-    <h2 class="mb-4">Panel de Tareas</h2>
-    <div class="mb-2">
-      <strong>Conectado como:</strong> {{ request.user.get_full_name|default:request.user.username }}
-      {% if request.user.operario %}
-        <small class="text-muted">(Operario: {{ request.user.operario.nombre }} {{ request.user.operario.apellido }})</small>
-      {% else %}
-        <small class="text-warning">No tiene operario asociado — puede simular uno con el selector.</small>
-      {% endif %}
+<div class="container mt-4">
+    <div class="card shadow-sm border-0 bg-white">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="fw-bold text-dark">Mis Tareas Asignadas</h4>
+                </div>
+
+            <form method="GET" class="row g-3 mb-4 align-items-center" action="{% url 'paneltareas' %}">
+                <div class="col-md-5">
+                    <input type="text" name="q" class="form-control shadow-sm" 
+                           placeholder="🔍 Buscar por ID tarea o Nro. Serie Amortiguador..." 
+                           value="{{ query|default:'' }}">
+                </div>
+                
+                <div class="col-md-4">
+                    <select name="estado" class="form-select shadow-sm">
+                        <option value="">Solo tareas activas</option> 
+                        {% for estado in estados_disponibles %}
+                            <option value="{{ estado }}" {% if estado == estado_seleccionado %}selected{% endif %}>
+                                {{ estado|capfirst }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-3 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary w-100 shadow-sm fw-bold">
+                        Filtrar
+                    </button>
+                    <a href="{% url 'paneltareas' %}" class="btn btn-outline-secondary shadow-sm">
+                        Limpiar
+                    </a>
+                </div>
+            </form>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th># ID Tarea</th>
+                            <th>Amortiguador (Nro. Serie)</th>
+                            <th>ID Pedido</th>
+                            <th>fecha asignación</th>
+                            <th>Estado Actual</th>
+                            <th class="text-end">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for tarea in tareas %}
+                        <tr>
+                            <td><span class="fw-bold text-primary">#{{ tarea.id }}</span></td>
+                            <td>
+                                <strong>{{ tarea.amortiguador.nroSerieamortiguador}}</strong><br>
+                               
+                            </td>
+                            <td>#{{ tarea.pedido.id }}</td>
+                            <td>{{ tarea.fechaAsignacion|date:"d/m/Y" }}</td>
+                            <td>
+                                <span class="badge 
+                                    {% if tarea.estado == 'pendiente' %}bg-secondary
+                                    {% elif tarea.estado == 'por reparar' %}bg-info
+                                    {% elif tarea.estado == 'en reparacion' %}bg-warning text-dark
+                                    {% else %}bg-dark{% endif %}">
+                                    {{ tarea.estado }}
+                                </span>
+                            </td>
+                            <td class="text-end">
+                                <a href="{% url 'detalle_tarea' tarea.id %}" class="btn btn-sm btn-outline-primary">
+                                    Gestionar Tarea
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted p-5">
+                                <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+                                No tienes tareas asignadas con esos criterios en este momento.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
-
-    <form method="post">
-      {% csrf_token %}
-      <input type="hidden" name="accion" value="elegiroperario" />
-      <div class="row g-2 align-items-end mb-3">
-        <div class="col-auto">
-          <label for="estado" class="form-label">Estado</label>
-          <select name="estado" id="estado" class="form-select">
-            <option value="" {% if not estadoselect %}selected{% endif %}>Todos</option>
-            <option value="pendiente" {% if estadoselect == 'pendiente' %}selected{% endif %}>Pendiente</option>
-            <option value="revisada" {% if estadoselect == 'revisada' %}selected{% endif %}>Revisada</option>
-            <option value="por reparar" {% if estadoselect == 'por reparar' %}selected{% endif %}>Por Reparar</option>
-            <option value="en reparacion" {% if estadoselect == 'en reparacion' %}selected{% endif %}>En Reparación</option>
-            <option value="terminada" {% if estadoselect == 'terminada' %}selected{% endif %}>Terminada</option>
-          </select>
-        </div>
-        <div class="col-auto">
-          <label for="prioridad" class="form-label">Prioridad</label>
-          <select name="prioridad" id="prioridad" class="form-select">
-            <option value="" {% if not priority %}selected{% endif %}>Todas</option>
-            <option value="alta" {% if priority == 'alta' %}selected{% endif %}>Alta</option>
-            <option value="media" {% if priority == 'media' %}selected{% endif %}>Media</option>
-            <option value="baja" {% if priority == 'baja' %}selected{% endif %}>Baja</option>
-          </select>
-        </div>
-        <div class="col-auto">
-          <button type="submit" class="btn btn-primary">Aplicar filtros</button>
-        </div>
-      </div>
-    </form>
-
-    {% if error %}
-      <div class="alert alert-warning">{{ error }}</div>
-    {% endif %}
-
-    {% with tasks=tareas_info|default:tareas %}
-      <h3>Tareas Pendientes{% if operario %} para {{ operario.nombre }} {{ operario.apellido }}{% endif %}</h3>
-      <div class="table-responsive">
-        <table class="table table-sm table-hover">
-          <thead>
-            <tr>
-              <th>ID Tarea</th>
-              <th>Fecha Asignación</th>
-              <th>Amortiguador</th>
-              <th>Prioridad</th>
-              <th>Estado</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% if tasks and tasks|length > 0 %}
-              {% for info in tasks %}
-                {% if info.tarea %}
-                  {% with tarea=info.tarea %}
-                  <tr>
-                    <td>{{ tarea.id }}</td>
-                    <td>{{ tarea.fechaAsignacion }}</td>
-                    <td>{{ tarea.amortiguador.nroSerieamortiguador }}</td>
-                    <td>{{ tarea.prioridad }}</td>
-                    <td>{{ tarea.estado }}</td>
-                    <td>
-                      <a href="/detalle_tarea/{{ tarea.id }}" class="btn btn-sm btn-outline-primary">Ver</a>
-                    </td>
-                  </tr>
-                  {% endwith %}
-                {% else %}
-                  <tr>
-                    <td>{{ info.id }}</td>
-                    <td>{{ info.fechaAsignacion }}</td>
-                    <td>{{ info.amortiguador.nroSerieamortiguador }}</td>
-                    <td>{{ info.prioridad }}</td>
-                    <td>{{ info.estado }}</td>
-                    <td><a href="/detalle_tarea/{{ info.id }}" class="btn btn-sm btn-info">Ver</a></td>
-                  </tr>
-                {% endif %}
-              {% endfor %}
-            {% else %}
-              <tr>
-                <td colspan="4"><div class="alert alert-info mb-0">No se encontraron tareas para los filtros seleccionados.</div></td>
-              </tr>
-            {% endif %}
-          </tbody>
-        </table>
-      </div>
-    {% endwith %}
-
-    <hr />
-  </div>
 </div>
-
 {% endblock %}
-
-{% block extra_js %} {% endblock %}

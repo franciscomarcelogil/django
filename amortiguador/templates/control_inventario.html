@@ -2,13 +2,18 @@
 {% block content %}
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="fw-bold">Centro de Control de Stock</h2>
-        <form class="d-flex" method="GET" action="{% url 'control_inventario' %}">
-
-            <input class="form-control me-2" type="search" name="q" placeholder="Buscar por nombre o tipo..." value="{{ query|default:'' }}">
-            <button class="btn btn-primary" type="submit">Buscar</button>
-        </form>
+        <h2 class="fw-bold">Gestión de Inventario</h2>
+        <div>
+            <a href="{% url 'informe_stock' %}" class="btn btn-danger fw-bold shadow-sm">
+                <i class="bi bi-file-earmark-pdf"></i> Informe: Stock Bajo Mínimo
+            </a>
+        </div>
     </div>
+
+    <form class="d-flex mb-4" method="GET">
+        <input class="form-control me-2 shadow-sm" type="search" name="q" placeholder="Buscar material por nombre o tipo..." value="{{ query }}">
+        <button class="btn btn-primary shadow-sm" type="submit">Buscar</button>
+    </form>
 
     <div class="card shadow-sm border-0 bg-white">
         <div class="table-responsive">
@@ -18,92 +23,37 @@
                         <th>Material</th>
                         <th>Stock Actual</th>
                         <th>Mínimo</th>
-                        <th>Costo Unit.</th>
-                        <th>Venta</th>
+                        <th>Costo Promedio</th>
+                        <th>Precio Venta</th>
                         <th class="text-center">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for m in materiales %}
-                    <tr class="{% if m.stockActual <= m.stockMinimo %}table-danger{% endif %}">
+                    <tr class="{% if m.stockActual < m.stockMinimo %}table-danger{% elif m.stockMinimo == 0 %}table-warning{% endif %}">
+                        <td><span class="fw-bold">{{ m.nombre }}</span><br><small class="text-muted">{{ m.tipo }}</small></td>
+                        <td><span class="badge {% if m.stockActual < m.stockMinimo %}bg-danger{% else %}bg-info{% endif %}">{{ m.stockActual }}</span></td>
                         <td>
-                            <span class="fw-bold">{{ m.nombre }}</span><br>
-                            <small class="text-muted">{{ m.tipo }} | {{ m.unidad }}</small>
+                            {% if m.stockMinimo == 0 %}
+                            <span class="text-muted">CARGUE MÍNIMO</span>
+                            {% else %}
+                            {{ m.stockMinimo }}
+                            {% endif %}
                         </td>
-                        <td><span class="badge {% if m.stockActual <= m.stockMinimo %}bg-danger{% else %}bg-info{% endif %} fs-6">{{ m.stockActual }}</span></td>
-                        <td>{{ m.stockMinimo }}</td>
                         <td>${{ m.costo_unidad }}</td>
                         <td><span class="text-success fw-bold">${{ m.precio_venta }}</span></td>
                         <td class="text-center">
-                            <button type="button" class="btn btn-sm btn-warning shadow-sm" data-bs-toggle="modal" data-bs-target="#editModal{{ m.id }}">
-                                <i class="bi bi-pencil-square"></i> Registrar Compra / Editar
-                            </button>
+                            <a href="{% url 'detalle_material' m.id %}" class="btn btn-sm btn-primary">
+                                Ver y Gestionar
+                            </a>
                         </td>
                     </tr>
                     {% empty %}
-                    <tr>
-                        <td colspan="6" class="text-center text-muted p-4">No se encontraron materiales con ese nombre.</td>
-                    </tr>
+                    <tr><td colspan="6" class="text-center p-4">No se encontraron materiales.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
 </div>
-
-{% for m in materiales %}
-<div class="modal fade" id="editModal{{ m.id }}" tabindex="-1" aria-labelledby="modalLabel{{ m.id }}" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content shadow-lg border-0 bg-white"> <form method="POST">
-                {% csrf_token %}
-                <input type="hidden" name="material_id" value="{{ m.id }}">
-                
-                <div class="modal-header bg-dark text-white">
-                    <h5 class="modal-title" id="modalLabel{{ m.id }}">Gestionar: {{ m.nombre }}</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                
-                <div class="modal-body p-4">
-                    <div class="row g-3">
-                        <div class="col-12 p-3 rounded" style="background-color: #f8f9fa; border: 1px dashed #dee2e6;">
-                            <label class="form-label fw-bold text-primary">¿Compraste más? (Suma al stock)</label>
-                            <input type="number" name="cantidad_compra" class="form-control border-primary" placeholder="Ingresa cantidad comprada..." min="1">
-                        </div>
-
-                        <div class="col-md-6">
-                            <label class="form-label">Costo Unitario ($)</label>
-                            <input type="number" step="0.01" name="costo_unidad" class="form-control" value="{{ m.costo_unidad|stringformat:'f' }}">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">% Ganancia Sugerido</label>
-                            <input type="number" name="porcentaje_ganancia" class="form-control" placeholder="Ej: 40" min="0">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Stock Mínimo</label>
-                            <input type="number" name="stock_minimo" class="form-control" value="{{ m.stockMinimo }}" min="0">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Unidad de Medida</label>
-                            <input type="text" name="unidad" class="form-control" value="{{ m.unidad }}">
-                        </div>
-                    </div>
-                    
-                    <div class="mt-4 p-2 bg-light rounded border">
-                        <small class="text-danger fw-bold">
-                            <i class="bi bi-exclamation-triangle"></i> Stock Reservado: {{ m.stockreservado }}
-                        </small>
-                        <br>
-                        <small class="text-muted">No se puede modificar manualmente para evitar errores en pedidos activos.</small>
-                    </div>
-                </div>
-                
-                <div class="modal-footer bg-light">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                    <button type="submit" class="btn btn-success px-4">Guardar y Actualizar</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-{% endfor %}
 {% endblock %}

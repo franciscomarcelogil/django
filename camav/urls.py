@@ -30,11 +30,20 @@ urlpatterns = [
    
 
     path('tarea/<int:tarea_id>/observacion/', views.crear_o_editar_observacion, name='crear_o_editar_observacion'),
-    path('inventario/control/', views.control_inventario, name='control_inventario'),
+    path('inventario/', views.control_inventario, name='control_inventario'),
+    path('inventario/material/<int:material_id>/', views.detalle_material, name='detalle_material'),
+    path('inventario/buscar-proveedor/', views.buscar_proveedor_api, name='buscar_proveedor_api'),
+    path('inventario/informe-stock/', views.informe_stock_minimo, name='informe_stock'),
+    path('inventario/generar-pdf-stock/', views.generar_pdf_stock, name='generar_pdf_stock'),
 
 
     path('fichas/', views.lista_fichas, name='lista_fichas'),
     path('fichas/<int:ficha_id>/', views.detalle_ficha, name='detalle_ficha'),
+
+    path('operarios/', views.lista_operarios, name='lista_operarios'),
+    path('operarios/<int:operario_id>/', views.detalle_operario, name='detalle_operario'),
+    path('operarios/<int:operario_id>/editar/', views.editar_operario, name='editar_operario'),
+    path('operarios/crear/', views.crear_operario, name='crear_operario'),
 
     path('listapedidos/', views.listapedidos, name='listapedidos'),
     path('panel_notificaciones/', views.panel_notificaciones, name='panel_notificaciones'),

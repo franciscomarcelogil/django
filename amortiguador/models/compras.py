@@ -1,12 +1,18 @@
 from django.db import models
 from .inventario import Material
 from .tecnico import Tarea
-
 class Proveedor(models.Model):
-  nombre = models.CharField(max_length=200)
-  apellido = models.CharField(max_length=200)
-  telefono = models.CharField(max_length=20)
+    cuit = models.CharField(max_length=20, unique=True, null=True, blank=True) # NUEVO
+    nombre = models.CharField(max_length=200)
+    apellido = models.CharField(max_length=200, blank=True, null=True)
+    telefono = models.CharField(max_length=20, blank=True, null=True)
 
+class Compra(models.Model):
+    material = models.ForeignKey(Material, on_delete=models.CASCADE)
+    proveedor = models.ForeignKey(Proveedor, on_delete=models.CASCADE)
+    cantidad = models.IntegerField()
+    costo_unitario = models.DecimalField(max_digits=10, decimal_places=2)
+    fecha_compra = models.DateTimeField(auto_now_add=True)
 class MaterialProveedor(models.Model):
   material = models.ForeignKey(Material, on_delete=models.CASCADE)
   proveedor = models.ForeignKey(Proveedor, on_delete=models.CASCADE)

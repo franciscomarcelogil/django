@@ -14,6 +14,10 @@
       href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
       rel="stylesheet"
     />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"
+      rel="stylesheet"
+    />
     <title>Camav</title>
   </head>
   <body>
@@ -34,14 +38,15 @@
                 <li class="nav-item">
                   <a class="nav-link" href="{% url 'listapedidos' %}">Pedidos</a>
                 </li>
-                <li class="nav-item">
-                  <a class="nav-link" href="{% url 'panel_notificaciones' %}">Notificaciones stock</a>
-                </li>
-                <li class="nav-item">
+              
+                <li class="nav-item"> 
                   <a class="nav-link" href="{% url 'lista_fichas' %}">Fichas técnicas</a>
                 </li>
                 <li class="nav-item">
                   <a class="nav-link" href="{% url 'control_inventario' %}">Control de inventario</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="{% url 'lista_operarios' %}">empleados</a>
                 </li>
 
               {% elif request.user.operario.role == 'operario' %}

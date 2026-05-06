@@ -16,11 +16,7 @@
     </div>
 
     <div class="card-body">
-      {% if messages %}
-        {% for message in messages %}
-          <div class="alert alert-{{ message.tags|default:'info' }} mb-3">{{ message }}</div>
-        {% endfor %}
-      {% endif %}
+      
 
       <h5 class="card-subtitle mb-3">Diagnóstico del Operario</h5>
       

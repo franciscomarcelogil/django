@@ -11,5 +11,6 @@ class Operario(models.Model):
   ROLE_CHOICES = (
     ('operario', 'Operario'),
     ('encargado', 'Encargado'),
+    ('encargado_materiales', 'Encargado de Materiales'),
   )
   role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='operario')

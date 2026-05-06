@@ -16,11 +16,7 @@
     </div>
 
     <div class="card-body">
-      {% if messages %}
-        {% for message in messages %}
-          <div class="alert alert-{{ message.tags|default:'info' }} mb-3">{{ message }}</div>
-        {% endfor %}
-      {% endif %}
+      
 
       <h6 class="card-subtitle mb-3 text-uppercase fw-bold text-primary">Diagnóstico Técnico</h6>
       
@@ -102,7 +98,7 @@
       </div>
 
       <!-- TABLA DE MATERIALES EN USO (Stock) -->
-      {% if materialxtarea %}
+      {% if materialxtarea and tarea.estado == 'por reparar' or materialxtarea and tarea.estado == 'en reparacion' %}
       <div class="card mb-3 border-warning">
         <div class="card-header bg-warning text-dark fw-bold">
           Gestión de Materiales de la Tarea
@@ -143,9 +139,31 @@
 
             <!-- Botón de Reserva (Antes de reparar) -->
             {% if tarea.estado == 'por reparar' %}
+            <!-- Alerta de falta de materiales (si aplica) -->
+            {% if materiales_faltantes %}
+            <div class="alert alert-warning alert-dismissible fade show mt-3" role="alert">
+              <strong><i class="fas fa-exclamation-triangle"></i> Stock Insuficiente</strong>
+              <ul class="mb-0 mt-2 small">
+                {% for mat_falt in materiales_faltantes %}
+                <li><strong>{{ mat_falt.material }}:</strong> necesitas {{ mat_falt.falta }} más (disponible: {{ mat_falt.disponible }}/{{ mat_falt.requerido }})</li>
+                {% endfor %}
+              </ul>
+              <p class="text-muted mb-0 mt-2 small"><i class="fas fa-info-circle"></i> El botón está deshabilitado hasta que el encargado complete el stock.</p>
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endif %}
+
             <form action="" method="post" class="mt-3 d-flex justify-content-end">
               {% csrf_token %}
-              <button type="submit" name="accion" value="reservar_materiales" class="btn btn-warning">Confirmar Retiro de Materiales</button>
+              <button 
+                type="submit" 
+                name="accion" 
+                value="reservar_materiales" 
+                class="btn btn-warning"
+                {% if not puede_reservar %}disabled title="Completa el stock faltante para poder continuar"{% endif %}
+              >
+                Confirmar Retiro de Materiales
+              </button>
             </form>
             {% endif %}
 
@@ -161,6 +179,37 @@
         </div>
       </div>
       {% endif %}
+      {% if tarea.estado == 'terminada' and materialxtarea %}
+      <div class="card mb-3 border-success">
+        <div class="card-header bg-success text-white fw-bold">
+          Detalles de Materiales Utilizados
+        </div>
+        <div class="card-body">
+          
+
+          <div class="table-responsive">
+            <table class="table table-sm table-bordered align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>Material</th>
+                  <th>Cantidad Reservada</th>
+                  <th>Cantidad Usada Real</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for mat in materialxtarea %}
+                <tr>
+                  <td>{{ mat.material.tipo }}</td>
+                  <td class="text-center fw-bold">{{ mat.stockrecomendado }}</td>
+                  <td class="text-center fw-bold">{{ mat.stockusado|default:'-' }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+        {% endif %}
 
       <div class="mt-4">
         <a href="{% url 'paneltareas' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> Volver a Tareas</a>

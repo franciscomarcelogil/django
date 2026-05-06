@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div>
+                <h3 class="fw-bold" style="color: #2c3e50;"><i class="bi bi-list-check"></i> Informe de Stock</h3>
+                <p class="text-muted small">Materiales que requieren reposición</p>
+            </div>
+        </div>
+        <div class="col-md-4 text-end">
+            {% if reporte %}
+            <a href="{% url 'generar_pdf_stock' %}" class="btn btn-sm btn-primary" style="background-color: #3498db; border: none;">
+                <i class="bi bi-file-earmark-pdf"></i> Guardar como PDF
+            </a>
+            {% endif %}
+            <a href="{% url 'control_inventario' %}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    {% if reporte %}
+        {% for item in reporte %}
+        <div class="card border-0 shadow-sm mb-3" style="background: white; border-left: 4px solid #e74c3c;">
+            <div class="card-body p-3">
+                <div class="row align-items-center mb-3">
+                    <div class="col">
+                        <h6 class="mb-1" style="color: #2c3e50;">{{ item.material.nombre }}</h6>
+                        <small class="text-muted">{{ item.material.tipo }}</small>
+                    </div>
+                    <div class="col-auto">
+                        <span class="badge" style="background-color: {% if item.material.stockActual < item.material.stockMinimo %}#e74c3c{% else %}#27ae60{% endif %}; color: white;">
+                            Stock: {{ item.material.stockActual }} / Mín: {{ item.material.stockMinimo }}
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0" style="font-size: 0.9rem;">
+                        <thead style="background-color: #ecf0f1;">
+                            <tr>
+                                <th class="border-0 py-2" style="color: #34495e;">Proveedor</th>
+                                <th class="border-0 py-2" style="color: #34495e;">CUIT</th>
+                                <th class="border-0 py-2" style="color: #34495e;">Contacto</th>
+                                <th class="border-0 py-2" style="color: #34495e;">Última compra</th>
+                                <th class="border-0 py-2 text-end" style="color: #34495e;">Precio</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in item.proveedores %}
+                            <tr style="border-bottom: 1px solid #ecf0f1;">
+                                <td class="py-2"><small><strong>{{ p.nombre }}</strong></small></td>
+                                <td class="py-2"><small>{{ p.cuit|default:"—" }}</small></td>
+                                <td class="py-2"><small>{{ p.telefono|default:"—" }}</small></td>
+                                <td class="py-2"><small>{{ p.fecha|date:"d/m/Y"|default:"—" }}</small></td>
+                                <td class="py-2 text-end"><small style="color: #27ae60; font-weight: 500;">${{ p.ultimo_precio }}</small></td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center py-3">
+                                    <small class="text-muted">Sin proveedores registrados</small>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="alert text-center py-5" style="background-color: #d5f4e6; border: 1px solid #27ae60; color: #27ae60;">
+            <h5><i class="bi bi-check-circle"></i> Stock en orden</h5>
+            <p class="mb-0 small">No hay materiales por debajo del stock mínimo</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
