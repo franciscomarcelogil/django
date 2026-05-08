@@ -39,7 +39,7 @@
                 <p class="small text-muted">{{ observacion.detalle_operario|default:'Sin comentarios adicionales.'|linebreaksbr }}</p>
               </div>
               <div class="col-md-6">
-                <p class="mb-1"><strong>Registro del Sistema:</strong></p>
+                <p class="mb-1"><strong>Comentario automático:</strong></p>
                 <div class="small text-muted font-monospace" style="white-space: pre-wrap; background: rgba(0,0,0,0.03); padding: 10px; border-radius: 8px;">{{ observacion.detalle_autogenerado }}</div>
                 <div class="small text-muted mt-2">Fecha de registro: {{ observacion.fecha }}</div>
               </div>
@@ -50,7 +50,7 @@
         </div>
       </div>
 
-      {% if tarea.estado == 'no revisada' or tarea.estado == 'revisada' or tarea.estado == 'por reparar' %}
+      {% if tarea.estado == 'no revisada' or tarea.estado == 'terminada' or tarea.estado == 'por reparar' %}
       <p class="small text-muted mb-3">Si cambias el tipo de tarea, se eliminan los materiales guardados y se deben volver a definir.</p>
       
       <div class="card mb-3">

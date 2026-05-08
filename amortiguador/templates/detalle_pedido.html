@@ -8,13 +8,16 @@
 
       <div class="d-flex justify-content-between align-items-start mb-3">
         <div>
-          <h3 class="mb-0">Detalle del Pedido</h3>
+          <h3 class="mb-0">Detalle del Pedido: {{ pedido.id }}</h3>
+           
           
         </div>
+
         <div class="text-end">
           <span class="badge me-1 {% if pedido.estado == 'pendiente' %}bg-warning text-dark{% elif pedido.estado == 'revisado' %}bg-success{% elif pedido.estado == 'presupuestado' %}bg-info text-dark{% elif pedido.estado == 'por reparar' %}bg-danger{% elif pedido.estado == 'en curso' %}bg-primary{% elif pedido.estado == 'terminado' %}bg-primary{% else %}bg-secondary{% endif %}">
                     Estado Actual: {{ pedido.estado|capfirst }}
                 </span>
+          
           {% if pedido.fechaSalidaReal %}
          
           <span class="badge bg-secondary">
@@ -28,12 +31,21 @@
           {% endif %}
         </div>
       </div>
+      <hr>
+      <p>
+
+          </p>
+          
+          <p><strong>Fecha de creación:</strong> {{ pedido.fechaingreso }}, {{pedido.horaingreso }}</p>
       <div class="card mb-4 border-info">
     <div class="card-body">
-        <h5 class="card-title text-info"><i class="fas fa-user-tag"></i> Datos de Contacto</h5>
+        <h5 class="fw-bold">Datos del cliente: {{ pedido.cliente.nombre }} {{ pedido.cliente.apellido }}</h5>
+        <hr>
         <div class="row align-items-center">
             <div class="col-md-6">
-                <p class="mb-1"><strong>Cliente:</strong> {{ pedido.cliente.nombre }} {{ pedido.cliente.apellido }}</p>
+                <p class="mb-1"><strong>DNI:</strong> {{ pedido.cliente.dni }}</p>
+               
+                <p class="mb-1"><strong>Correo electrónico:</strong> {{ pedido.cliente.correo }}</p>
                 <div class="alert alert-warning py-2 mb-0 mt-2" role="alert">
                     <i class="fas fa-phone-alt"></i> <strong>Llamar al: {{ pedido.cliente.telefono }}</strong>
                 </div>
@@ -49,10 +61,10 @@
       <div class="row g-3">
         {% for tarea in tareas %}
         <div class="col-12">
-          <!-- Usamos el card normal para que tu CSS le aplique el border-radius de 18px -->
+   
           <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
-              <div class="fw-bold"> ID Amortiguador: {{ tarea.amortiguador.nroSerieamortiguador }}</div>
+              <div class="fw-bold">ID Tarea: {{ tarea.id }}</div>
               <div>
                 <span class="badge {% if tarea.estado == 'no revisada' %}bg-secondary{% elif tarea.estado == 'revisada' %}bg-success{% elif tarea.estado == 'por reparar' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ tarea.estado }}</span>
               </div>
@@ -62,6 +74,7 @@
                 <div class="d-flex flex-column">
                   <p class="mb-1"><strong>Operario:</strong> {{ tarea.operario.nombre }} {{ tarea.operario.apellido }} </p> 
                   <p class="mb-1"> Legajo: {{ tarea.operario.legajo }} </p> 
+                  <p class="mb-1">ID Amortiguador: {{ tarea.amortiguador.nroSerieamortiguador }}</p>
                   
                   <div class="d-flex justify-content-between align-items-center">
                     
@@ -90,7 +103,6 @@
         {% endfor %}
       </div>
 
-      <!-- PRESUPUESTO DE REPARACIÓN -->
       {% if pedido.estado == 'presupuestado' and not control and todastareasrevisadas %}
       <div class="card mt-4">
         <div class="card-header">
@@ -106,7 +118,7 @@
           </div>
           
           <div class="table-responsive">
-            <!-- Esta es tu tabla con clases personalizadas de tu CSS -->
+   
             <table class="table table-presupuesto">
               <thead>
                 <tr>
@@ -181,7 +193,7 @@
       </div>
       {% endif %}
 
-      <!-- PRESUPUESTO SOLO CONTROL -->
+ 
       {% if pedido.estado == 'revisado' and control %}
       <div class="card mt-4">
         <div class="card-header">
@@ -204,7 +216,7 @@
       </div>
       {% endif %}
 
-      <!-- PRESUPUESTO REAL (cuando pedido está terminado) -->
+
       {% if pedido.estado == 'terminado' and presupuesto_real or pedido.estado == 'retirado' and presupuesto_real or pedido.estado == 'retirado' %}
       <div class="card mt-4">
         <div class="card-header">
@@ -283,7 +295,7 @@
       </div>
       {% endif %}
 
-      <!-- ACCIONES DEL PEDIDO Y BOTONES -->
+
       <div class="mt-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div>
           {% if pedido.estado == 'pendiente' %}
@@ -314,6 +326,17 @@
           {% endif %}
 
           {% if pedido.estado == 'terminado' or pedido.estado == 'retirado' %}
+          {% if comprobante %}
+
+          <a href="{% url 'descargar_comprobante' pedido.id %}" class="btn btn-outline-primary btn-sm">
+            <i class="fas fa-file-pdf"></i> Abrir comprobante
+          </a>
+          <form method="post" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" name="accion" value="enviar_comprobante" class="btn btn-primary btn-sm">Enviar comprobante</button>
+          </form>
+          {% else %}
+
           <form method="post" class="d-inline">
             {% csrf_token %}
             <button type="submit" name="accion" value="emitir_comprobante" class="btn btn-outline-primary btn-sm">Emitir comprobante</button>
@@ -322,6 +345,7 @@
             {% csrf_token %}
             <button type="submit" name="accion" value="enviar_comprobante" class="btn btn-primary btn-sm">Enviar comprobante</button>
           </form>
+          {% endif %}
           {% endif %}
 
           {% if pedido.estado == 'terminado'%}
@@ -333,7 +357,6 @@
         </div>
       </div>
 
-      <!-- EDICION PLAN DE PEDIDO -->
       {% if pedido.estado == 'por reparar' %}
       <div class="card mt-4">
         <div class="card-body">
@@ -395,7 +418,6 @@
   </div>
 </div>
 
-<!-- Modal Salir sin guardar -->
 <div class="modal fade" id="modalSalirSinGuardar" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">

@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="card mb-4">
+    <div class="card-body">
+      <!-- Encabezado con datos del cliente -->
+      <div class="d-flex justify-content-between align-items-start mb-4">
+        <div>
+          <h2 class="mb-2">{{ cliente.nombre }} {{ cliente.apellido }}</h2>
+          <p class="text-muted mb-1">
+            <strong>DNI:</strong> {{ cliente.dni }}
+          </p>
+          <p class="text-muted mb-1">
+            <strong>Teléfono:</strong> {{ cliente.telefono|default:'-' }}
+          </p>
+          <p class="text-muted">
+            <strong>Correo:</strong> {{ cliente.correo|default:'-' }}
+          </p>
+        </div>
+        <div>
+          <button 
+            type="button" 
+            class="btn btn-primary"
+            data-bs-toggle="modal"
+            data-bs-target="#modalEditarCliente"
+          >
+            <i class="fas fa-edit"></i> Editar datos
+          </button>
+        </div>
+      </div>
+
+      <hr>
+
+      <!-- Pedidos del cliente -->
+      <h4 class="mb-3">Pedidos de este cliente</h4>
+      
+      {% if pedidos %}
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>ID Pedido</th>
+              <th>Fecha de Ingreso</th>
+              <th>Estado</th>
+              <th>Fecha Salida</th>
+              <th class="text-center">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for pedido in pedidos %}
+            <tr>
+              <td>
+                <span class="fw-bold">#{{ pedido.id }}</span>
+              </td>
+              <td>
+                {{ pedido.fechaingreso|date:"d/m/Y" }} 
+                <small class="text-muted">{{ pedido.horaingreso|time:"H:i" }}</small>
+              </td>
+              <td>
+                <span class="badge 
+                  {% if pedido.estado == 'pendiente' %}bg-warning text-dark
+                  {% elif pedido.estado == 'revisado' %}bg-success
+                  {% elif pedido.estado == 'presupuestado' %}bg-info text-dark
+                  {% elif pedido.estado == 'por reparar' %}bg-danger
+                  {% elif pedido.estado == 'en curso' %}bg-primary
+                  {% elif pedido.estado == 'terminado' %}bg-success
+                  {% elif pedido.estado == 'retirado' %}bg-secondary
+                  {% else %}bg-secondary
+                  {% endif %}
+                ">
+                  {{ pedido.estado|capfirst }}
+                </span>
+                {% if pedido.cancelado %}
+                  <span class="badge bg-dark ms-1">
+                    <i class="fas fa-ban"></i> Cancelado
+                  </span>
+                {% endif %}
+              </td>
+              <td>
+                {% if pedido.fechaSalidaReal %}
+                  {{ pedido.fechaSalidaReal|date:"d/m/Y" }}
+                {% else %}
+                  <span class="text-muted">-</span>
+                {% endif %}
+              </td>
+              <td class="text-center">
+                <a 
+                  href="{% url 'detalle_pedido' pedido.id %}" 
+                  class="btn btn-sm btn-outline-primary"
+                >
+                  <i class="fas fa-eye"></i> Ver
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="alert alert-info">
+        <i class="fas fa-inbox"></i> Este cliente no tiene pedidos registrados aún.
+      </div>
+      {% endif %}
+
+      
+    </div>
+  </div>
+</div>
+
+<!-- Modal para editar cliente -->
+<div class="modal fade" id="modalEditarCliente" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title text-white">Editar Cliente</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{% url 'detalle_cliente' cliente.id %}">
+        {% csrf_token %}
+        <input type="hidden" name="accion" value="editar_cliente">
+        
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Nombre</label>
+            <input type="text" name="nombre" class="form-control" value="{{ cliente.nombre }}" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Apellido</label>
+            <input type="text" name="apellido" class="form-control" value="{{ cliente.apellido }}" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">DNI</label>
+            <input type="text" name="dni" class="form-control" value="{{ cliente.dni }}" disabled>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Teléfono</label>
+            <input type="text" name="telefono" class="form-control" value="{{ cliente.telefono|default:'' }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Correo</label>
+            <input type="email" name="correo" class="form-control" value="{{ cliente.correo|default:'' }}">
+          </div>
+        </div>
+        
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar cambios</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<a href="{% url 'lista_clientes' %}" class="btn btn-outline-secondary mt-4">
+  <i class="fas fa-arrow-left"></i> Volver a clientes
+</a>
+
+{% endblock %}

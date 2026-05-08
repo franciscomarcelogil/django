@@ -58,7 +58,7 @@
         </form>
         {% endif %}
 
-        {% if user_role == 'encargado' and tarea.estado == 'revisada' %}
+        {% if user_role == 'encargado' and tarea.estado == 'terminada' %}
         <form action="" method="post" class="d-flex align-items-center">
           {% csrf_token %}
           <select name="confirmarreparacion" class="form-select form-select-sm me-2" style="width:140px;">

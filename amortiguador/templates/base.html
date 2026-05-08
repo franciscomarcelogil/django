@@ -32,13 +32,11 @@
             <ul class="navbar-nav ms-auto d-flex gap-3">
               {% if request.user.operario.role == 'encargado' %}
                 <li class="nav-item">
-                  <a class="nav-link" href="{% url 'home' %}">Inicio</a>
-                </li>
-              
-                <li class="nav-item">
                   <a class="nav-link" href="{% url 'listapedidos' %}">Pedidos</a>
                 </li>
-              
+                <li class="nav-item"> 
+                  <a class="nav-link" href="{% url 'lista_clientes' %}">Clientes</a>
+                </li>
                 <li class="nav-item"> 
                   <a class="nav-link" href="{% url 'lista_fichas' %}">Fichas técnicas</a>
                 </li>
@@ -54,9 +52,7 @@
                   <a class="nav-link" href="{% url 'paneltareas' %}">Panel de tareas</a>
                 </li>
               {% elif request.user.operario.role == 'encargado_materiales' %}
-                <li class="nav-item">
-                  <a class="nav-link" href="{% url 'home' %}">Inicio</a>
-                </li>
+                
               {% endif %}
               <li class="nav-item">
                 <form method="post" action="{% url 'logout' %}" style="display: inline;">

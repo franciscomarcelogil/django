@@ -3,47 +3,46 @@
 <div class="container mt-4 bg-light p-4 rounded shadow-sm border">
   <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-2">
     <h2 class="text-primary mb-0">Historial de Amortiguador: {{ amortiguador.nroSerieamortiguador }}</h2>
-    <span class="badge bg-secondary fs-6">Ficha: {{ amortiguador.fichaamortiguador.descripcion }}</span>
+    <span class="badge bg-secondary fs-6">Ficha: {{ amortiguador.fichaamortiguador.nombregenerico}}</span>
   </div>
   {% if observaciones %}
-  <div class="table-responsive">
-    <table class="table table-hover table-bordered align-middle bg-white">
-      <thead class="table-dark">
+  <div class="table-responsive" style="border: 1px solid #d5dde7; border-radius: 8px; overflow: hidden;">
+    <table class="table table-smooth-borders align-middle bg-white mb-0" style="border: none;">
+      <thead class="table-light">
         <tr>
           <th style="width: 120px;">Fecha y Hora</th>
+          <th> id tarea </th>
          
           <th class="text-center">Diagrama</th>
           <th>Comentarios del Operario</th>
-          <th>Auditoría del Sistema (Registro)</th>
+          <th>Comentario Sugerencia</th>
           <th>Comentario Final</th>
         </tr>
       </thead>
       <tbody>
         {% for observacion in observaciones %}
         <tr>
-          <!-- Fecha y Hora combinadas usando filtros de Django -->
+
           <td>
             <span class="fw-bold d-block">{{ observacion.fecha|date:"d/m/Y" }}</span>
             <small class="text-muted">{{ observacion.fecha|time:"H:i" }}</small>
           </td>
-          
-          <!-- Sugerencia Técnica -->
-          
-          
-          <!-- Valor del Diagrama -->
+          <td>
+            <span>{{ observacion.tarea.id }}</span>
+          </td>
           <td class="text-center fw-bold">
             {{ observacion.valor_diagrama|default:'N/A' }}
           </td>
           
-          <!-- Lo que escribió el operario -->
+      
           <td>
             <span class="small">{{ observacion.detalle_operario|default:'Sin comentarios.'|linebreaksbr }}</span>
           </td>
           
-          <!-- Lo que autogeneró el sistema (inmutable) -->
-          <td class="small font-monospace bg-light" style="white-space: pre-wrap; min-width: 280px;">{{ observacion.detalle_autogenerado }}</td>
+  
+          <td class="small" style="white-space: pre-wrap; min-width: 280px;">{{ observacion.detalle_autogenerado }}</td>
           
-          <!-- Comentario Final generado al finalizar -->
+
           <td>
             <span class="small">{{ observacion.comentariofinal|default:'-'|linebreaksbr }}</span>
           </td>
@@ -59,7 +58,7 @@
   </div>
   {% endif %}
   
-  <!-- Usando la etiqueta url de Django que es más segura que poner la ruta a mano -->
+
   <a href="{% url 'detalle_pedido' id_pedido %}" class="btn btn-outline-secondary mt-3">
     <i class="fas fa-arrow-left"></i> Volver al Pedido
   </a>

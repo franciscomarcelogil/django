@@ -22,9 +22,12 @@
       <div class="row g-2">
         {% for operario in operarios %}
         <div class="col-md-6 col-lg-3">
-          <div class="p-3 bg-light rounded text-center">
+          <div class="p-3 bg-light rounded">
             <div class="fw-bold">{{ operario.nombre }} {{ operario.apellido }}</div>
             <small class="text-muted">Legajo: {{ operario.legajo }}</small>
+            <div class="mt-2">
+              <span class="badge bg-info">{{ operario.tareas_pendientes }} tarea{% if operario.tareas_pendientes != 1 %}s{% endif %}</span>
+            </div>
           </div>
         </div>
         {% empty %}
@@ -99,7 +102,7 @@
             <select name="operario" id="operario" class="form-select" required>
               <option value="">Seleccione un operario...</option>
               {% for op in operarios %}
-              <option value="{{ op.id }}">{{ op.nombre }} {{ op.apellido }} (L. {{ op.legajo }})</option>
+              <option value="{{ op.id }}">{{ op.nombre }} {{ op.apellido }} (L. {{ op.legajo }}) - {{ op.tareas_pendientes }} tarea{% if op.tareas_pendientes != 1 %}s{% endif %}</option>
               {% endfor %}
             </select>
           </div>

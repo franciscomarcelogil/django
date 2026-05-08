@@ -11,7 +11,7 @@ def role_required(allowed_roles):
         @wraps(view_func)
         def _wrapped_view(request, *args, **kwargs):
             if not request.user.is_authenticated:
-                return redirect('/accounts/login/?next=' + request.path)
+                return redirect('/login/?next=' + request.path)
             operario = getattr(request.user, 'operario', None)
             if not operario or operario.role not in allowed_roles:
                 return HttpResponseForbidden('No tienes permisos para acceder a esta página.')

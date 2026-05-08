@@ -606,8 +606,7 @@ small,
 
 /* Tabla de presupuesto */
 .table-presupuesto {
-  border-collapse: separate;
-  border-spacing: 0;
+  border-collapse: collapse;
   margin-bottom: 0;
 }
 
@@ -698,4 +697,51 @@ small,
   font-weight: 700;
   color: var(--primary);
   font-size: 1.1rem;
+}
+
+/* Tabla con bordes suaves redondeados */
+.table-smooth-borders {
+  border-collapse: collapse !important;
+  background-color: white !important;
+}
+
+.table-smooth-borders thead {
+  background-color: var(--primary-soft) !important;
+}
+
+.table-smooth-borders thead tr {
+  border: 1px solid var(--border) !important;
+}
+
+.table-smooth-borders thead th {
+  border: 1px solid var(--border) !important;
+  border-right: 1px solid var(--border) !important;
+  padding: 12px !important;
+  font-weight: 600 !important;
+  background-color: var(--primary-soft) !important;
+  color: var(--text) !important;
+}
+
+.table-smooth-borders thead th:not(:last-child) {
+  border-right: 1px solid var(--border) !important;
+}
+
+.table-smooth-borders tbody tr {
+  border-bottom: 1px solid var(--border) !important;
+}
+
+.table-smooth-borders tbody td {
+  border-right: 1px solid var(--border) !important;
+  border-bottom: 1px solid var(--border) !important;
+  padding: 12px !important;
+  vertical-align: middle !important;
+  color: var(--text-muted) !important;
+}
+
+.table-smooth-borders tbody td:last-child {
+  border-right: none !important;
+}
+
+.table-smooth-borders tbody tr:hover {
+  background-color: rgba(92, 111, 130, 0.08) !important;
 }

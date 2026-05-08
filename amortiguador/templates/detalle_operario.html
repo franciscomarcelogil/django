@@ -80,8 +80,8 @@
                                     <td>{{ tarea.amortiguador.tipo }}</td>
                                     <td>{{ tarea.fechaAsignacion|date:"d/m/Y" }}</td>
                                     <td>
-                                        <a href="{% url 'detalle_tarea' tarea.id %}" class="btn btn-sm btn-primary">
-                                            Ver
+                                        <a href="{% url 'detalle_pedido' tarea.pedido.id %}" class="btn btn-sm btn-primary">
+                                            Ver pedido
                                         </a>
                                     </td>
                                 </tr>
@@ -121,8 +121,8 @@
                                     <td>{{ tarea.amortiguador.tipo }}</td>
                                     <td>{{ tarea.fechaAsignacion|date:"d/m/Y" }}</td>
                                     <td>
-                                        <a href="{% url 'detalle_tarea' tarea.id %}" class="btn btn-sm btn-primary">
-                                            Ver
+                                        <a href="{% url 'detalle_pedido' tarea.pedido.id %}" class="btn btn-sm btn-primary">
+                                            Ver pedido
                                         </a>
                                     </td>
                                 </tr>

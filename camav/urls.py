@@ -16,7 +16,6 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
-from django.views.generic.base import RedirectView
 from amortiguador import views
 
 urlpatterns = [
@@ -45,10 +44,14 @@ urlpatterns = [
     path('operarios/<int:operario_id>/editar/', views.editar_operario, name='editar_operario'),
     path('operarios/crear/', views.crear_operario, name='crear_operario'),
 
+    path('clientes/', views.lista_clientes, name='lista_clientes'),
+    path('clientes/<int:cliente_id>/', views.detalle_cliente, name='detalle_cliente'),
+
     path('listapedidos/', views.listapedidos, name='listapedidos'),
     path('panel_notificaciones/', views.panel_notificaciones, name='panel_notificaciones'),
     path('historial_amortiguador/<int:tarea_id>/', views.historial_amortiguador, name='historial_amortiguador'),
-    path('login/', RedirectView.as_view(url='/accounts/login/', permanent=False)),
+    path('descargar_comprobante/<int:pedido_id>/', views.descargar_comprobante, name='descargar_comprobante'),
+    path('login/', views.login_view, name='login'),
     # auth
     path('accounts/', include('django.contrib.auth.urls')),
 

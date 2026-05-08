@@ -7,6 +7,14 @@
       <div class="card shadow-sm">
         <div class="card-body">
           <h4 class="card-title mb-3">Iniciar sesión</h4>
+          
+          {% if show_error %}
+            <div class="alert alert-danger alert-dismissible fade show mb-3" role="alert">
+              Usuario o contraseña incorrectos.
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+          {% endif %}
+        
           <form method="post">
             {% csrf_token %}
             <div class="mb-3">

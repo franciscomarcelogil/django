@@ -1,0 +1,170 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="card mb-4">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">Gestión de Clientes</h2>
+        
+      </div>
+
+      <!-- Buscador -->
+      <div class="mb-4">
+        <form method="get" class="d-flex gap-2">
+          <div class="flex-grow-1">
+            <input 
+              type="text" 
+              name="q" 
+              class="form-control" 
+              placeholder="Buscar por nombre o DNI..." 
+              value="{{ query }}"
+            >
+          </div>
+          <button type="submit" class="btn btn-outline-primary">
+            <i class="fas fa-search"></i> Buscar
+          </button>
+          {% if query %}
+            <a href="{% url 'lista_clientes' %}" class="btn btn-outline-secondary">
+              Limpiar
+            </a>
+          {% endif %}
+        </form>
+      </div>
+
+      <!-- Tabla de clientes -->
+      {% if clientes %}
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>DNI</th>
+              <th>Nombre y Apellido</th>
+              <th>Teléfono</th>
+              <th>Correo</th>
+              <th class="text-center">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for cliente in clientes %}
+            <tr>
+              <td>
+                <span class="fw-bold">{{ cliente.dni }}</span>
+              </td>
+              <td>
+                {{ cliente.nombre }} {{ cliente.apellido }}
+              </td>
+              <td>
+                {{ cliente.telefono|default:'-' }}
+              </td>
+              <td>
+                <small>{{ cliente.correo|default:'-' }}</small>
+              </td>
+              <td class="text-center">
+                <div class="btn-group" role="group">
+                  <a 
+                    href="{% url 'detalle_cliente' cliente.id %}" 
+                    class="btn btn-sm btn-outline-primary"
+                    title="Ver detalles"
+                  >
+                    <i class="fas fa-eye"></i> Ver
+                  </a>
+                  <button 
+                    type="button" 
+                    class="btn btn-sm btn-outline-secondary"
+                    data-bs-toggle="modal"
+                    data-bs-target="#modalEditarCliente"
+                    data-cliente-id="{{ cliente.id }}"
+                    data-cliente-nombre="{{ cliente.nombre }}"
+                    data-cliente-apellido="{{ cliente.apellido }}"
+                    data-cliente-telefono="{{ cliente.telefono }}"
+                    data-cliente-correo="{{ cliente.correo }}"
+                    title="Editar"
+                  >
+                    <i class="fas fa-edit"></i> Editar
+                  </button>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="alert alert-info text-center py-5">
+        <i class="fas fa-inbox" style="font-size: 32px; display: block; margin-bottom: 10px;"></i>
+        No se encontraron clientes.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Modal para editar cliente -->
+<div class="modal fade" id="modalEditarCliente" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title text-white">Editar Cliente</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" id="formEditarCliente" action="">
+        {% csrf_token %}
+        <input type="hidden" name="accion" value="editar_cliente">
+        
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Nombre</label>
+            <input type="text" name="nombre" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Apellido</label>
+            <input type="text" name="apellido" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Teléfono</label>
+            <input type="text" name="telefono" class="form-control">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Correo</label>
+            <input type="email" name="correo" class="form-control">
+          </div>
+        </div>
+        
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar cambios</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Populate modal with client data
+  const modalEditarCliente = document.getElementById('modalEditarCliente');
+  if (modalEditarCliente) {
+    modalEditarCliente.addEventListener('show.bs.modal', function(event) {
+      const button = event.relatedTarget;
+      const clienteId = button.dataset.clienteId;
+      const nombre = button.dataset.clienteNombre;
+      const apellido = button.dataset.clienteApellido;
+      const telefono = button.dataset.clienteTelefono;
+      const correo = button.dataset.clienteCorreo;
+
+      // Update form fields
+      const form = document.getElementById('formEditarCliente');
+      form.action = `/clientes/${clienteId}/`;
+      form.querySelector('input[name="nombre"]').value = nombre;
+      form.querySelector('input[name="apellido"]').value = apellido;
+      form.querySelector('input[name="telefono"]').value = telefono || '';
+      form.querySelector('input[name="correo"]').value = correo || '';
+    });
+  }
+</script>
+
+<a href="{% url 'home' %}" class="btn btn-outline-secondary mt-4">
+  <i class="fas fa-arrow-left"></i> Volver
+</a>
+
+{% endblock %}

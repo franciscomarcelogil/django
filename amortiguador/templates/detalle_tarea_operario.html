@@ -19,8 +19,7 @@
       
 
       <h6 class="card-subtitle mb-3 text-uppercase fw-bold text-primary">Diagnóstico Técnico</h6>
-      
-      <!-- BLOQUE DE OBSERVACIÓN UNIFICADA -->
+    
       <div class="row mb-4">
         <div class="col-12">
           <div class="card h-100 border-start border-4 border-primary shadow-sm">
@@ -40,7 +39,6 @@
 
               {% if observacion %}
                 <div class="row mb-3">
-                    <!-- Valores Clave -->
                     <div class="col-md-6 border-end">
                         <p class="mb-1"><strong>Sugerencia Operativa:</strong> 
                             <span class="badge bg-dark">{{ observacion.sugerencia_tecnica|upper }}</span>
@@ -55,16 +53,16 @@
                         {% endif %}
                     </div>
 
-                    <!-- Comentario manual del Operario -->
+
                     <div class="col-md-6">
                         <h6 class="text-muted mb-1"><i class="fas fa-user-edit"></i> Comentarios del Operario</h6>
                         <p class="small mb-0 text-dark">{{ observacion.detalle_operario|default:'Sin comentarios adicionales.'|linebreaks }}</p>
                     </div>
                 </div>
 
-                <!-- Auditoría Automática del Sistema (Materiales) -->
+
                 <div class="bg-light border rounded p-3 mt-3">
-                    <h6 class="text-primary mb-2"><i class="fas fa-robot"></i> Registro del Sistema (Auditoría)</h6>
+                    <h6 class="text-primary mb-2"><i class="fas fa-robot"></i> Comentario automatico </h6>
                     <div class="small text-dark font-monospace" style="white-space: pre-wrap;">{{ observacion.detalle_autogenerado }}</div>
                 </div>
 
@@ -82,7 +80,7 @@
         </div>
       </div>
 
-      <!-- BOTÓN PARA TERMINAR OBSERVACIONES -->
+
       <div class="mb-4 d-flex flex-wrap gap-2">
         {% if tarea.estado == 'pendiente' and tarea.pedido.estado == 'en curso' %}
           {% if observacion %}
@@ -97,7 +95,6 @@
         {% endif %}
       </div>
 
-      <!-- TABLA DE MATERIALES EN USO (Stock) -->
       {% if materialxtarea and tarea.estado == 'por reparar' or materialxtarea and tarea.estado == 'en reparacion' %}
       <div class="card mb-3 border-warning">
         <div class="card-header bg-warning text-dark fw-bold">
@@ -137,9 +134,9 @@
               </table>
             </div>
 
-            <!-- Botón de Reserva (Antes de reparar) -->
+           
             {% if tarea.estado == 'por reparar' %}
-            <!-- Alerta de falta de materiales (si aplica) -->
+           
             {% if materiales_faltantes %}
             <div class="alert alert-warning alert-dismissible fade show mt-3" role="alert">
               <strong><i class="fas fa-exclamation-triangle"></i> Stock Insuficiente</strong>
@@ -167,7 +164,6 @@
             </form>
             {% endif %}
 
-            <!-- Botón de Finalización (Después de reparar) -->
             {% if tarea.estado == 'en reparacion' %}
               <div class="d-flex justify-content-between align-items-center mt-3 border-top pt-3">
                 <small class="text-danger">* Registra exactamente el stock utilizado antes de finalizar.</small>
