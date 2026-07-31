@@ -1,5 +1,4 @@
 from django.db import models
-from django_lifecycle import AFTER_UPDATE, hook
 from .clientes import Pedido
 from .personal import Operario
 class Fichaamortiguador (models.Model):
@@ -27,9 +26,7 @@ class Tarea(models.Model):
   operario = models.ForeignKey(Operario, on_delete=models.CASCADE)
   amortiguador = models.ForeignKey(Amortiguador, on_delete=models.CASCADE)
   fecha_ultimo_cambio = models.DateTimeField(auto_now=True)
-  @hook(AFTER_UPDATE, when='tipoTarea', was='reparacion', is_now='control')
-  def limpiar_materiales_al_cambiar_a_control(self):
-        self.materialtarea_set.all().delete()
+
 
 
 

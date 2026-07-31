@@ -963,16 +963,25 @@ def _materiales_para_sugerencia_tarea(tarea):
         item.material_id: item.stockrecomendado
         for item in MaterialTarea.objects.filter(tarea=tarea)
     }
+    total_estimado = 0
+    materiales_sugeribles = []
+    for item in materiales_ficha:
+        cantidad_sugerida = materiales_tarea.get(item.material_id, 0)
+        subtotal = (item.material.precio_venta or 0) * cantidad_sugerida
+        total_estimado += subtotal
+        materiales_sugeribles.append(
+            {
+                'material_id': item.material_id,
+                'material_tipo': item.material.tipo,
+                'cantidad_maxima': item.cantidadrecomendada,
+                'cantidad_sugerida': cantidad_sugerida,
+                'costo_unitario': item.material.costo_unidad,
+                'precio_venta': item.material.precio_venta,
+                'subtotal': subtotal,
+            }
+        )
 
-    return [
-        {
-            'material_id': item.material_id,
-            'material_tipo': item.material.tipo,
-            'cantidad_maxima': item.cantidadrecomendada,
-            'cantidad_sugerida': materiales_tarea.get(item.material_id, 0),
-        }
-        for item in materiales_ficha
-    ]
+    return materiales_sugeribles, total_estimado
 
 
 def _observacion_para_tarea(tarea, tipoobservacion):
@@ -1513,6 +1522,9 @@ def detalle_tarea(request, tarea_id):
     context['materialxtarea'] = materialxtarea
     context['materialxamortiguador'] = materialxamortiguador
     context['materiales_sugeribles'] = _materiales_para_sugerencia_tarea(tarea)
+    materiales_sugeribles, total_estimado_materiales = _materiales_para_sugerencia_tarea(tarea)
+    context['materiales_sugeribles'] = materiales_sugeribles
+    context['total_estimado_materiales'] = total_estimado_materiales
  
     tipo_sugerido = observacion.sugerencia_tecnica if observacion else None
     context['tipo_sugerido'] = tipo_sugerido
@@ -1578,41 +1590,6 @@ def detalle_tarea(request, tarea_id):
                 messages.error(request, 'Tipo invalido.')
                 return redirect('detalle_tarea', tarea_id=tarea.id)
 
-            material_ids = request.POST.getlist('material_id[]')
-            cantidades = request.POST.getlist('cantidadrecomendada[]')
-            mapa_recomendados = {
-                str(item.material_id): int(item.cantidadrecomendada or 0)
-                for item in MaterialFichaAmortiguador.objects.filter(fichaamortiguador=tarea.amortiguador.fichaamortiguador)
-            }
-
-            materiales_para_guardar = []
-            for material_id, cantidad_raw in zip(material_ids, cantidades):
-                try:
-                    if material_id not in mapa_recomendados:
-                        messages.error(request, 'Se detecto un material invalido para esta ficha tecnica.')
-                        return redirect('detalle_tarea', tarea_id=tarea.id)
-
-                    material = Material.objects.get(id=material_id)
-                    cantidad_int = int(cantidad_raw)
-                    if cantidad_int < 0:
-                        messages.error(request, f'Cantidad invalida para {material.tipo}. No puede ser negativa.')
-                        return redirect('detalle_tarea', tarea_id=tarea.id)
-
-                    max_recomendado = int(mapa_recomendados.get(material_id, 0))
-                    if cantidad_int > max_recomendado:
-                        messages.error(request, f'Cantidad invalida para {material.tipo}. El maximo para esta ficha es {max_recomendado}.')
-                        return redirect('detalle_tarea', tarea_id=tarea.id)
-
-                    if cantidad_int >= 1:
-                        materiales_para_guardar.append((material, cantidad_int))
-                except (Material.DoesNotExist, ValueError):
-                    messages.error(request, 'Hay cantidades invalidas. Revisa los valores ingresados.')
-                    return redirect('detalle_tarea', tarea_id=tarea.id)
-
-            if nuevo_tipo == 'reparacion' and not materiales_para_guardar:
-                messages.error(request, 'Debes aprobar al menos un material para reparación.')
-                return redirect('detalle_tarea', tarea_id=tarea.id)
-
             tipo_actual = (tarea.tipoTarea or '').strip()
             cambio_de_tipo = tipo_actual != nuevo_tipo
 
@@ -1621,15 +1598,6 @@ def detalle_tarea(request, tarea_id):
           
                 tarea.estado = 'por reparar' if nuevo_tipo == 'reparacion' else 'terminada'
                 tarea.save(update_fields=['tipoTarea', 'estado'])
-
-                MaterialTarea.objects.filter(tarea=tarea).delete()
-                if nuevo_tipo == 'reparacion':
-                    for material, cantidad_int in materiales_para_guardar:
-                        MaterialTarea.objects.create(
-                            tarea=tarea,
-                            material=material,
-                            stockrecomendado=cantidad_int,
-                        )
 
 
             sincronizar_estado_pedido(tarea.pedido)
@@ -1648,9 +1616,6 @@ def detalle_tarea(request, tarea_id):
             nuevo_tipo = request.POST.get('confirmarreparacion')
             tipo_actual = (tarea.tipoTarea or '').strip()
             cambio_de_tipo = tipo_actual != nuevo_tipo
-
-            if nuevo_tipo == 'control' and MaterialTarea.objects.filter(tarea=tarea).exists():
-                MaterialTarea.objects.filter(tarea=tarea).delete()
 
             tarea.tipoTarea = nuevo_tipo
             tarea.estado = 'terminada' if nuevo_tipo == 'control' else 'por reparar'
@@ -2008,9 +1973,11 @@ def crear_o_editar_observacion(request, tarea_id):
         messages.success(request, 'Diagnóstico completo guardado.')
         return redirect('detalle_tarea', tarea_id=tarea.id)
 
+    materiales_sugeribles, total_estimado_materiales = _materiales_para_sugerencia_tarea(tarea)
     context = {
         'tarea': tarea,
-        'materiales_sugeribles': _materiales_para_sugerencia_tarea(tarea),
+        'materiales_sugeribles': materiales_sugeribles,
+        'total_estimado_materiales': total_estimado_materiales,
         'ficha': tarea.amortiguador.fichaamortiguador,
         'obs': getattr(tarea, 'observacion', None)
     }

@@ -51,11 +51,12 @@
       </div>
 
       {% if tarea.estado == 'no revisada' or tarea.estado == 'terminada' or tarea.estado == 'por reparar' %}
-      <p class="small text-muted mb-3">Si cambias el tipo de tarea, se eliminan los materiales guardados y se deben volver a definir.</p>
+      <p class="small text-muted mb-3">Si cambias el tipo de tarea, los materiales sugeridos se conservan y no puedes modificar sus cantidades.</p>
       
       <div class="card mb-3">
         <div class="card-body">
-          <h6 class="card-title">Decisión del Encargado y Aprobación de Materiales</h6>
+          <h6 class="card-title">Decisión del Encargado</h6>
+          <p class="small text-muted mb-3">Las cantidades sugeridas quedan fijas; solo puedes definir si la tarea será control o reparación.</p>
           <form action="" method="post">
             {% csrf_token %}
             <div class="d-flex align-items-center mb-3">
@@ -72,7 +73,10 @@
                   <tr>
                     <th>Material</th>
                     <th>Máximo (Ficha)</th>
-                    <th>Cantidad Aprobada</th>
+                    <th>Cantidad sugerida</th>
+                    <th>Costo unit.</th>
+                    <th>Precio venta</th>
+                    <th>Subtotal</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -80,14 +84,19 @@
                   <tr>
                     <td>{{ mat.material_tipo }}</td>
                     <td>{{ mat.cantidad_maxima }}</td>
-                    <td style="width: 180px;">
-                      <input type="hidden" name="material_id[]" value="{{ mat.material_id }}" />
-                      <input type="hidden" name="tarea_id" value="{{ tarea.id }}" />
-                      <input type="number" name="cantidadrecomendada[]" min="0" max="{{ mat.cantidad_maxima }}" placeholder="Cantidad" value="{{ mat.cantidad_sugerida }}" required class="form-control form-control-sm" />
-                    </td>
+                    <td>{{ mat.cantidad_sugerida }}</td>
+                    <td>${{ mat.costo_unitario|floatformat:2 }}</td>
+                    <td>${{ mat.precio_venta|floatformat:2 }}</td>
+                    <td>${{ mat.subtotal|floatformat:2 }}</td>
                   </tr>
                   {% endfor %}
                 </tbody>
+                <tfoot>
+                  <tr class="table-light fw-bold">
+                    <td colspan="5" class="text-end">Total estimado</td>
+                    <td>${{ total_estimado_materiales|floatformat:2 }}</td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
             <button type="submit" name="accion" value="guardar_tipo_materiales" class="btn btn-primary btn-sm">Guardar Decisión</button>
