@@ -1,18 +1,262 @@
-{% extends 'base.html' %} {% block content %}
-<div class="card">
-  <h1>Home</h1>
-  <p>
-    Lorem ipsum dolor sit amet consectetur adipisicing elit. Facere
-    necessitatibus, cupiditate totam tenetur est aliquam magnam natus
-    praesentium numquam officiis veritatis explicabo eum sequi temporibus, hic
-    exercitationem incidunt ad quae repellendus libero. Repudiandae iure porro
-    reiciendis unde optio, rem commodi ab labore expedita accusamus dignissimos
-    ut tenetur suscipit accusantium deleniti assumenda natus temporibus, dolores
-    alias et itaque ratione? Illum quo eius laboriosam sapiente velit dolor
-    harum deserunt ut dolorem exercitationem, reiciendis praesentium
-    reprehenderit nisi itaque ab, non rem? Odit, quas cumque sapiente ipsum enim
-    quae repellat tempora accusantium voluptatum voluptas aliquam similique
-    minima perferendis vel eum placeat fugit esse at.
-  </p>
+{% extends 'base.html' %}
+{% block content %}
+<style>
+  .dashboard-shell { padding: 24px 0 36px; }
+  .dashboard-hero {
+    position: relative; overflow: hidden; border: 0; border-radius: 24px;
+    background: linear-gradient(135deg, #0f172a 0%, #1d4ed8 52%, #38bdf8 100%);
+    color: #fff; box-shadow: 0 20px 50px rgba(15, 23, 42, 0.18);
+  }
+  .dashboard-hero::after {
+    content: ''; position: absolute; inset: auto -80px -120px auto; width: 280px; height: 280px;
+    border-radius: 50%; background: rgba(255, 255, 255, 0.08); filter: blur(0);
+  }
+  .dashboard-hero__eyebrow { letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.78rem; opacity: 0.85; }
+  .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; margin-top: 18px; }
+  .metric-card {
+    background: rgba(255, 255, 255, 0.94); border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 18px; padding: 18px 18px 16px; box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08); min-height: 138px;
+  }
+  .metric-card__label { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #64748b; }
+  .metric-card__value { font-size: 2.25rem; line-height: 1; font-weight: 800; color: #0f172a; margin-top: 14px; }
+  .metric-card__hint { margin-top: 8px; color: #475569; font-size: 0.9rem; }
+  .dashboard-grid { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 20px; margin-top: 20px; }
+  .dashboard-card { border-radius: 20px; border: 1px solid #e2e8f0; box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06); background: #fff; height: 100%; }
+  .dashboard-card__header { border-bottom: 1px solid #e2e8f0; padding: 18px 20px; }
+  .dashboard-card__body { padding: 20px; }
+  .chart-wrap { position: relative; height: 300px; width: 100%; }
+  .op-list-item { padding: 12px 14px; border-radius: 12px; border: 1px solid #e2e8f0; background: #f8fafc; transition: all 0.2s; }
+  .op-list-item:hover { border-color: #93c5fd; background: #eff6ff; }
+  .low-stock-item { padding: 12px 14px; border-radius: 12px; background: #fff7ed; border: 1px solid #fed7aa; }
+  @media (max-width: 992px) { .dashboard-grid { grid-template-columns: 1fr; } }
+</style>
+
+<div class="container dashboard-shell">
+  <div class="dashboard-hero p-4 p-md-5 mb-4">
+    <div class="position-relative" style="z-index: 1;">
+      <div class="dashboard-hero__eyebrow mb-2">CAMAV</div>
+      <h1 class="fw-bold mb-2">Panel de Control: Rendimiento y Operaciones</h1>
+      <p class="mb-0 text-white-50" style="max-width: 760px;">Métricas financieras, carga de trabajo por operario y estado general del taller.</p>
+    </div>
+
+    <div class="metric-grid position-relative" style="z-index: 1;">
+      <div class="metric-card">
+        <div class="metric-card__label">Pedidos Activos</div>
+        <div class="metric-card__value text-primary">{{ total_activos }}</div>
+        <div class="metric-card__hint">En proceso dentro del taller.</div>
+      </div>
+      <div class="metric-card border-danger">
+        <div class="metric-card__label text-danger">Atrasados (Últ. 30 días)</div>
+        <div class="metric-card__value text-danger">{{ pedidos_atrasados_30d }}</div>
+        <div class="metric-card__hint">Vencidos en el mes.</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-card__label">Tareas Pendientes</div>
+        <div class="metric-card__value">{{ tareas_pendientes }}</div>
+        <div class="metric-card__hint">Por revisar y diagnosticar.</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-card__label text-warning">Alertas de Stock</div>
+        <div class="metric-card__value" {% if alertas_stock > 0 %}style="color:#dc2626;"{% endif %}>{{ alertas_stock }}</div>
+        <div class="metric-card__hint">Materiales bajo el mínimo.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4 mb-4">
+    <div class="col-lg-7">
+      <div class="dashboard-card">
+        <div class="dashboard-card__header">
+          <h5 class="mb-0 fw-bold"><i class="bi bi-graph-up-arrow text-success me-2"></i>Ganancias de Trabajos Retirados</h5>
+          <small class="text-muted">Evolución de ingresos (Últimos 6 meses)</small>
+        </div>
+        <div class="dashboard-card__body">
+          <div class="chart-wrap">
+            <canvas id="gananciasChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-5">
+      <div class="dashboard-card">
+        <div class="dashboard-card__header">
+          <h5 class="mb-0 fw-bold"><i class="bi bi-bar-chart-fill text-primary me-2"></i>Efectividad de Pedidos</h5>
+          <small class="text-muted">Proporción de Éxito vs. Cancelaciones</small>
+        </div>
+        <div class="dashboard-card__body">
+          <div class="chart-wrap">
+            <canvas id="comparativaChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    
+    <div class="col-lg-7">
+      <div class="dashboard-card">
+        <div class="dashboard-card__header d-flex justify-content-between align-items-center">
+          <div>
+            <h5 class="mb-0 fw-bold"><i class="bi bi-people-fill text-primary me-2"></i>Carga de Trabajo por Operario</h5>
+            <small class="text-muted">Personal con tareas activas asignadas</small>
+          </div>
+          <a href="{% url 'lista_operarios' %}" class="btn btn-sm btn-outline-primary">Ver Todos</a>
+        </div>
+        <div class="dashboard-card__body">
+          <div class="d-flex flex-column gap-2">
+            {% for op in operarios_activos %}
+            <div class="op-list-item d-flex justify-content-between align-items-center flex-wrap gap-2">
+              <div>
+                <h6 class="fw-bold mb-1">{{ op.nombre }} {{ op.apellido }}</h6>
+                <small class="text-muted">Legajo: {{ op.legajo }}</small>
+              </div>
+              <div class="d-flex gap-2 text-center">
+                <div class="bg-white border rounded px-2 py-1 shadow-sm" title="Pendientes de diagnóstico">
+                  <div class="small fw-bold text-secondary" style="font-size: 0.65rem;">PENDIENTE</div>
+                  <div class="fw-bold text-dark">{{ op.solo_pendientes }}</div>
+                </div>
+                <div class="bg-white border rounded px-2 py-1 shadow-sm" title="Aprobadas, esperando reparación">
+                  <div class="small fw-bold text-secondary" style="font-size: 0.65rem;">POR REPARAR</div>
+                  <div class="fw-bold text-warning">{{ op.por_reparar }}</div>
+                </div>
+                <div class="bg-white border rounded px-2 py-1 shadow-sm" title="En curso actualmente">
+                  <div class="small fw-bold text-secondary" style="font-size: 0.65rem;">EN CURSO</div>
+                  <div class="fw-bold text-primary">{{ op.en_reparacion }}</div>
+                </div>
+                <div class="bg-primary text-white border-primary rounded px-3 py-1 shadow-sm d-flex flex-column justify-content-center">
+                  <div class="small fw-bold opacity-75" style="font-size: 0.65rem;">TOTAL</div>
+                  <div class="fw-bold fs-5 lh-1">{{ op.total_pendientes }}</div>
+                </div>
+              </div>
+            </div>
+            {% empty %}
+            <div class="text-center text-muted py-4">
+              <i class="bi bi-check-circle-fill fs-2 text-success d-block mb-2"></i>
+              Excelente, no hay operarios con tareas atrasadas.
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-5">
+      <div class="dashboard-card">
+        <div class="dashboard-card__header d-flex justify-content-between align-items-center">
+          <div>
+            <h5 class="mb-0 fw-bold"><i class="bi bi-exclamation-octagon text-danger me-2"></i>Alertas de Materiales</h5>
+          </div>
+          <a href="{% url 'control_inventario' %}" class="btn btn-sm btn-outline-secondary">Inventario</a>
+        </div>
+        <div class="dashboard-card__body">
+          <div class="low-stock-list">
+            {% if materiales_stock_bajo %}
+              {% for material in materiales_stock_bajo %}
+              <div class="low-stock-item border-danger-subtle bg-danger-subtle">
+                <div class="d-flex justify-content-between">
+                  <div class="fw-bold text-danger">{{ material.tipo }}</div>
+                  <span class="badge bg-danger rounded-pill">¡Faltan!</span>
+                </div>
+                <small class="text-dark mt-1 d-block">Actual: <strong>{{ material.stockActual }}</strong> | Mínimo requerido: {{ material.stockMinimo }}</small>
+              </div>
+              {% endfor %}
+            {% else %}
+              <div class="low-stock-item bg-success-subtle border-success-subtle text-center py-4">
+                <i class="bi bi-check-circle-fill text-success fs-2 d-block mb-2"></i>
+                <div class="fw-bold text-success">Inventario Saludable</div>
+                <small class="text-success opacity-75">No hay materiales por debajo del mínimo.</small>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
+
+{{ labels_ganancias|json_script:"labels-ganancias" }}
+{{ data_ganancias|json_script:"data-ganancias" }}
+{{ labels_comparativa|json_script:"labels-comparativa" }}
+{{ data_comparativa|json_script:"data-comparativa" }}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  
+  // 1. GRÁFICO DE LÍNEAS (Ganancias de Pedidos Retirados)
+  const labelsGanancias = JSON.parse(document.getElementById('labels-ganancias').textContent);
+  const dataGanancias = JSON.parse(document.getElementById('data-ganancias').textContent);
+  const ctxGanancias = document.getElementById('gananciasChart').getContext('2d');
+  
+  if (dataGanancias.length > 0) {
+    new Chart(ctxGanancias, {
+      type: 'line',
+      data: {
+        labels: labelsGanancias,
+        datasets: [{
+          label: 'Ingresos Brutos ($)',
+          data: dataGanancias,
+          borderColor: '#10b981', // Verde éxito
+          backgroundColor: 'rgba(16, 185, 129, 0.15)',
+          borderWidth: 3,
+          tension: 0.3,
+          fill: true,
+          pointBackgroundColor: '#10b981',
+          pointRadius: 4,
+          pointHoverRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: function(context) { return '$ ' + context.parsed.y.toLocaleString(); } } }
+        },
+        scales: {
+          y: { beginAtZero: true, grid: { borderDash: [4, 4] }, ticks: { callback: function(value) { return '$' + value; } } },
+          x: { grid: { display: false } }
+        }
+      }
+    });
+  } else {
+    document.getElementById('gananciasChart').parentElement.innerHTML = '<div class="d-flex h-100 align-items-center justify-content-center text-muted">No hay pedidos retirados recientes para calcular ganancias.</div>';
+  }
+
+  // 2. GRÁFICO DE BARRAS (Retirados vs Cancelados)
+  const labelsComparativa = JSON.parse(document.getElementById('labels-comparativa').textContent);
+  const dataComparativa = JSON.parse(document.getElementById('data-comparativa').textContent);
+  const ctxComparativa = document.getElementById('comparativaChart').getContext('2d');
+
+  new Chart(ctxComparativa, {
+    type: 'bar',
+    data: {
+      labels: labelsComparativa,
+      datasets: [{
+        label: 'Cantidad de Pedidos',
+        data: dataComparativa,
+        backgroundColor: [
+          'rgba(59, 130, 246, 0.85)',  // Retirados (Azul)
+          'rgba(239, 68, 68, 0.85)'    // Cancelados (Rojo)
+        ],
+        borderRadius: 8,
+        borderWidth: 0,
+        barThickness: 50
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { borderDash: [4, 4] } },
+        x: { grid: { display: false }, ticks: { font: { weight: 'bold' } } }
+      }
+    }
+  });
+
+});
+</script>
 {% endblock %}

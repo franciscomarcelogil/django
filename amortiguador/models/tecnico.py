@@ -7,6 +7,7 @@ class Fichaamortiguador (models.Model):
   valor_minimo = models.DecimalField(max_digits=10, decimal_places=2, default=0)
   valor_maximo = models.DecimalField(max_digits=10, decimal_places=2, default=0)
   mano_obra_reparacion = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+  estado = models.CharField(max_length=20, default='activo')
 
 
 
@@ -26,6 +27,9 @@ class Tarea(models.Model):
   operario = models.ForeignKey(Operario, on_delete=models.CASCADE)
   amortiguador = models.ForeignKey(Amortiguador, on_delete=models.CASCADE)
   fecha_ultimo_cambio = models.DateTimeField(auto_now=True)
+  fecha_inicio_reparacion = models.DateTimeField(null=True, blank=True)
+  fecha_finalizacion = models.DateTimeField(null=True, blank=True)
+  devuelta = models.BooleanField(default=False)
 
 
 

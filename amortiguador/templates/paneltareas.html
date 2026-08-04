@@ -1,89 +1,225 @@
 {% extends 'base.html' %}
+
 {% block content %}
-<div class="container mt-4">
-    <div class="card shadow-sm border-0 bg-white">
-        <div class="card-body">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h4 class="fw-bold text-dark">Mis Tareas Asignadas</h4>
-                </div>
-
-            <form method="GET" class="row g-3 mb-4 align-items-center" action="{% url 'paneltareas' %}">
-                <div class="col-md-5">
-                    <input type="text" name="q" class="form-control shadow-sm" 
-                           placeholder="🔍 Buscar por ID tarea o Nro. Serie Amortiguador..." 
-                           value="{{ query|default:'' }}">
-                </div>
-                
-                <div class="col-md-4">
-                    <select name="estado" class="form-select shadow-sm">
-                        <option value="">Solo tareas activas</option> 
-                        {% for estado in estados_disponibles %}
-                            <option value="{{ estado }}" {% if estado == estado_seleccionado %}selected{% endif %}>
-                                {{ estado|capfirst }}
-                            </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                
-                <div class="col-md-3 d-flex gap-2">
-                    <button type="submit" class="btn btn-primary w-100 shadow-sm fw-bold">
-                        Filtrar
-                    </button>
-                    <a href="{% url 'paneltareas' %}" class="btn btn-outline-secondary shadow-sm">
-                        Limpiar
-                    </a>
-                </div>
-            </form>
-
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th># ID Tarea</th>
-                            <th>Amortiguador (Nro. Serie)</th>
-                            <th>ID Pedido</th>
-                            <th>fecha asignación</th>
-                            <th>Estado Actual</th>
-                            <th class="text-end">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for tarea in tareas %}
-                        <tr>
-                            <td><span class="fw-bold text-primary">#{{ tarea.id }}</span></td>
-                            <td>
-                                <strong>{{ tarea.amortiguador.nroSerieamortiguador}}</strong><br>
-                               
-                            </td>
-                            <td>#{{ tarea.pedido.id }}</td>
-                            <td>{{ tarea.fechaAsignacion|date:"d/m/Y" }}</td>
-                            <td>
-                                <span class="badge 
-                                    {% if tarea.estado == 'pendiente' %}bg-secondary
-                                    {% elif tarea.estado == 'por reparar' %}bg-info
-                                    {% elif tarea.estado == 'en reparacion' %}bg-warning text-dark
-                                    {% else %}bg-dark{% endif %}">
-                                    {{ tarea.estado }}
-                                </span>
-                            </td>
-                            <td class="text-end">
-                                <a href="{% url 'detalle_tarea' tarea.id %}" class="btn btn-sm btn-outline-primary">
-                                    Gestionar Tarea
-                                </a>
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="5" class="text-center text-muted p-5">
-                                <i class="bi bi-inbox fs-3 d-block mb-2"></i>
-                                No tienes tareas asignadas con esos criterios en este momento.
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
+<div class="container dashboard-shell">
+  <div class="page-hero p-4 p-md-5 mb-4">
+    <div class="position-relative" style="z-index: 1;">
+      <div class="page-hero__eyebrow mb-2">Operario</div>
+      <h1 class="fw-bold mb-2">Mis tareas asignadas</h1>
+      <p class="mb-0 text-white-50" style="max-width: 740px;">Tarjetas con la información clave para entrar rápido a cada tarea y gestionar tu trabajo.</p>
     </div>
+  </div>
+
+  <!-- Barra de Herramientas: Filtros (Django) y Ordenamiento (JS) -->
+  <div class="toolbar-modern mb-4">
+    <form method="GET" action="{% url 'paneltareas' %}">
+      <div class="row g-3 align-items-end">
+        
+        <!-- Filtro Búsqueda (Backend) -->
+        <div class="col-md-3">
+          <label class="form-label text-muted small mb-1">Buscar</label>
+          <input type="text" name="q" class="form-control" placeholder="ID o Serie" value="{{ query|default:'' }}">
+        </div>
+        
+        <!-- Filtro Estado (Backend) -->
+        <div class="col-md-3">
+          <label class="form-label text-muted small mb-1">Estado</label>
+          <select name="estado" class="form-select">
+            <option value="">Solo tareas activas</option>
+            {% for estado in estados_disponibles %}
+              <option value="{{ estado }}" {% if estado == estado_seleccionado %}selected{% endif %}>{{ estado|capfirst }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        
+        <div class="col-md-3 d-flex gap-2">
+          <button type="submit" class="btn btn-primary flex-grow-1">Filtrar</button>
+          <a href="{% url 'paneltareas' %}" class="btn btn-outline-secondary">Limpiar</a>
+        </div>
+
+        <!-- Ordenamiento Dinámico (Frontend JS) -->
+        <div class="col-md-3 ms-auto border-start ps-3">
+          <label class="form-label text-muted small mb-1">Ordenar por</label>
+          <select id="sortSelect" class="form-select">
+            <option value="recientes">Última actualización (Más recientes)</option>
+            <option value="antiguas">Última actualización (Más antiguas)</option>
+            <option value="prioridad">Prioridad (Alta primero)</option>
+            <option value="id_desc">Nº de Tarea (Mayor a menor)</option>
+          </select>
+        </div>
+
+      </div>
+    </form>
+  </div>
+
+  <!-- Contenedor de las tarjetas para JS -->
+  <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4" id="tareasContainer">
+    {% for tarea in tareas %}
+    
+    <!-- Aquí definimos la metadata para que JS pueda ordenar -->
+    <div class="col tarea-item" 
+         data-id="{{ tarea.id }}"
+         data-fecha="{% if tarea.fecha_ultimo_cambio %}{{ tarea.fecha_ultimo_cambio|date:'YmdHis' }}{% else %}0{% endif %}"
+         data-prioridad="{% if tarea.prioridad == 'alta' %}3{% elif tarea.prioridad == 'media' %}2{% else %}1{% endif %}">
+         
+      <article class="card tarea-card {% if tarea.devuelta %}border-danger shadow-sm{% endif %}">
+        
+        <!-- CABECERA -->
+        <div class="card-header d-flex justify-content-between align-items-start gap-2 {% if tarea.devuelta %}bg-danger-subtle border-danger{% endif %}">
+          <div>
+            <div class="fw-bold fs-5 {% if tarea.devuelta %}text-danger{% endif %} mb-1">
+              Tarea #{{ tarea.id }}
+            </div>
+            
+            <small class="text-muted d-flex align-items-center gap-2">
+              <span class="text-dark fw-medium">{{ tarea.amortiguador.nroSerieamortiguador }}</span>
+              <span>&bull;</span>
+              <span>Ped #{{ tarea.pedido.id }}</span>
+            </small>
+          </div>
+          
+          <div class="text-end">
+            <!-- Etiqueta de Tarea Devuelta -->
+            {% if tarea.devuelta %}
+              <span class="badge bg-danger mb-2 d-block pulse-alert">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" class="bi bi-exclamation-triangle-fill me-1" viewBox="0 0 16 16"><path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/></svg>
+                CORREGIR
+              </span>
+            {% endif %}
+            
+            <span class="state-pill state-pill--{{ tarea.estado|slugify }}">
+              {{ tarea.estado|capfirst }}
+            </span>
+          </div>
+        </div>
+
+        <!-- CUERPO -->
+        <div class="card-body">
+          {% if tarea.devuelta %}
+            <div class="alert alert-danger py-2 px-3 mb-3 small">
+              <strong>Devuelta:</strong> El Encargado rechazó la sugerencia. Revisa el historial.
+            </div>
+          {% endif %}
+
+          <div class="d-flex justify-content-between align-items-baseline mb-2">
+            <span class="fw-medium text-dark">Tipo: {{ tarea.tipoTarea|default:'A definir'|capfirst }}</span>
+            
+            {% if tarea.prioridad|lower == 'alta' %}
+              <span class="badge text-bg-danger">Prioridad Alta</span>
+            {% elif tarea.prioridad|lower == 'media' %}
+              <span class="badge text-bg-warning">Prioridad Media</span>
+            {% else %}
+              <span class="badge text-bg-info text-white">Prioridad Baja</span>
+            {% endif %}
+          </div>
+          
+          <div class="small text-muted mb-3">
+            Cliente: {{ tarea.pedido.cliente.nombre }} {{ tarea.pedido.cliente.apellido }}
+          </div>
+
+          <!-- Barra de Progreso Visual Operario -->
+          <div class="tarea-progress-container">
+            <div class="tarea-progress-track">
+              <div class="tarea-progress-fill" 
+                   style="
+                      width: {% if tarea.estado|lower == 'pendiente' %}15%
+                             {% elif tarea.estado|lower == 'no revisada' %}40%
+                             {% elif tarea.estado|lower == 'por reparar' %}60%
+                             {% elif tarea.estado|lower == 'en reparacion' or tarea.estado|lower == 'en reparación' %}85%
+                             {% elif tarea.estado|lower == 'terminada' %}100%
+                             {% else %}0%{% endif %};
+                      background-color: {% if tarea.devuelta %}var(--bs-danger)
+                                        {% elif tarea.estado|lower == 'terminada' %}var(--bs-success)
+                                        {% else %}var(--primary){% endif %};
+                   ">
+              </div>
+            </div>
+          </div>
+
+          <!-- Fechas en el mismo renglón -->
+          <div class="d-flex flex-wrap gap-2 mt-auto">
+            <span class="badge text-bg-light border border-secondary-subtle text-secondary">
+              Asig: {{ tarea.fechaAsignacion|date:"d/m/y" }}
+            </span>
+            {% if tarea.fechaLimite %}
+            <span class="badge text-bg-light border border-danger-subtle text-danger fw-bold">
+              Límite: {{ tarea.fechaLimite|date:"d/m/y" }}
+            </span>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- PIE (Botones) -->
+        <div class="card-footer d-flex gap-2 flex-wrap">
+          <a href="{% url 'detalle_tarea' tarea.id %}" class="btn {% if tarea.devuelta %}btn-danger{% else %}btn-primary{% endif %} flex-grow-1">
+            {% if tarea.devuelta %}Corregir tarea{% else %}Gestionar tarea{% endif %}
+          </a>
+          <a href="{% url 'detalle_pedido' tarea.pedido.id %}" class="btn btn-outline-secondary px-3" title="Ver pedido completo">
+            Ver Pedido
+          </a>
+        </div>
+      </article>
+    </div>
+    
+    {% empty %}
+    <div class="col-12 w-100">
+      <div class="card section-card">
+        <div class="card-body text-center text-muted py-5">
+          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" class="bi bi-inbox text-secondary mb-3 opacity-50" viewBox="0 0 16 16"><path d="M4.98 4a.5.5 0 0 0-.39.188L1.54 8H6a.5.5 0 0 1 .5.5 1.5 1.5 0 1 0 3 0A.5.5 0 0 1 10 8h4.46l-3.05-3.812A.5.5 0 0 0 11.02 4H4.98zm-1.17-.437A1.5 1.5 0 0 1 4.98 3h6.04a1.5 1.5 0 0 1 1.17.563l3.7 4.625a.5.5 0 0 1 .106.374l-.39 3.124A1.5 1.5 0 0 1 14.117 13H1.883a1.5 1.5 0 0 1-1.489-1.314l-.39-3.124a.5.5 0 0 1 .106-.374l3.7-4.625zM.125 8.67l.39 3.124a.5.5 0 0 0 .496.438h12.218a.5.5 0 0 0 .495-.438l.39-3.124H10.5a.5.5 0 0 1-.5.5 2.5 2.5 0 0 1-5 0 .5.5 0 0 1-.5-.5H.125z"/></svg>
+          <h5 class="fw-bold text-dark">Bandeja limpia</h5>
+          <p class="mb-0">No tienes tareas asignadas con estos criterios en este momento.</p>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
 </div>
+
+<!-- LÓGICA DE ORDENAMIENTO JS -->
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const sortSelect = document.getElementById('sortSelect');
+    const container = document.getElementById('tareasContainer');
+    // Obtenemos todos los elementos que sean tareas
+    const items = Array.from(container.querySelectorAll('.tarea-item'));
+
+    function sortTareas() {
+      const sortBy = sortSelect.value;
+
+      items.sort(function(a, b) {
+        if (sortBy === 'recientes') {
+          // Ordenar por fecha (Mayor a menor)
+          return parseInt(b.dataset.fecha) - parseInt(a.dataset.fecha);
+        } 
+        else if (sortBy === 'antiguas') {
+          // Ordenar por fecha (Menor a mayor)
+          return parseInt(a.dataset.fecha) - parseInt(b.dataset.fecha);
+        }
+        else if (sortBy === 'prioridad') {
+          // Ordenar por prioridad (3 a 1). En caso de empate, usar fecha reciente.
+          let prioA = parseInt(a.dataset.prioridad);
+          let prioB = parseInt(b.dataset.prioridad);
+          if (prioA !== prioB) {
+            return prioB - prioA; 
+          }
+          return parseInt(b.dataset.fecha) - parseInt(a.dataset.fecha);
+        }
+        else if (sortBy === 'id_desc') {
+          // Ordenar por ID de la tarea
+          return parseInt(b.dataset.id) - parseInt(a.dataset.id);
+        }
+      });
+
+      // Vaciamos el contenedor y reinsertamos los elementos en el nuevo orden
+      items.forEach(item => container.appendChild(item));
+    }
+
+    // Escuchamos el evento de cambio en el selector
+    if(sortSelect) {
+      sortSelect.addEventListener('change', sortTareas);
+      // Ejecutamos una vez al cargar la página para aplicar el orden por defecto
+      sortTareas();
+    }
+  });
+</script>
 {% endblock %}

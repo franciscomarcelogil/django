@@ -1,129 +1,118 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="container mt-4">
-  <div class="card mb-4">
-    <div class="card-header d-flex justify-content-between align-items-center">
-      <div>
-        <h5 class="mb-0">Tarea #{{ tarea.id }}</h5>
-        <small class="text-muted">Amortiguador: {{ tarea.amortiguador.nroSerieamortiguador }}</small>
-      </div>
-      <div class="text-end">
-        <span class="badge bg-primary me-1">{{ tarea.tipoTarea|capfirst }}</span>
-        <span class="badge {% if tarea.estado == 'por reparar' %}bg-warning text-dark{% else %}bg-secondary{% endif %} me-1">{{ tarea.estado }}</span>
-        <span class="badge bg-info text-dark">Prioridad: {{ tarea.prioridad }}</span>
+<div class="container dashboard-shell">
+  <div class="page-hero p-4 p-md-5 mb-4">
+    <div class="position-relative" style="z-index: 1;">
+      <div class="page-hero__eyebrow mb-2">Encargado</div>
+      <h1 class="fw-bold mb-2">Detalle de tarea #{{ tarea.id }}</h1>
+      <p class="mb-0 text-white-50" style="max-width: 760px;">Vista de solo lectura para revisar diagnóstico, materiales y estado actual.</p>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-5">
+      <div class="card section-card h-100">
+        <div class="card-header d-flex justify-content-between align-items-start gap-2">
+          <div>
+            <h5 class="mb-0">Resumen</h5>
+            <small class="text-muted">Amortiguador {{ tarea.amortiguador.nroSerieamortiguador }}</small>
+          </div>
+          <div class="text-end d-flex flex-column gap-2 align-items-end">
+            <span class="state-pill state-pill--{{ tarea.estado|slugify }}">{{ tarea.estado|capfirst }}</span>
+            <span class="badge text-bg-light border">Prioridad: {{ tarea.prioridad|capfirst }}</span>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="entity-meta mb-3">
+            <div><strong>Tipo de tarea:</strong> {{ tarea.tipoTarea|default:'Sin definir'|capfirst }}</div>
+            <div><strong>Operario:</strong> {{ tarea.operario.nombre }} {{ tarea.operario.apellido }}</div>
+            <div><strong>Legajo:</strong> {{ tarea.operario.legajo }}</div>
+            <div><strong>Pedido:</strong> #{{ tarea.pedido.id }}</div>
+          </div>
+          {% if tarea.estado == 'pendiente' and tarea.pedido.estado != 'aprobado' and tarea.pedido.estado != 'terminado' and tarea.pedido.estado != 'retirado' and tarea.pedido.estado != 'notificado' %}
+          <button
+            type="button"
+            class="btn btn-outline-danger w-100 mb-2"
+            data-confirm-action="eliminar_tarea"
+            data-confirm-url="{% url 'detalle_tarea' tarea.id %}"
+            data-confirm-title="Eliminar tarea"
+            data-confirm-message="Esta tarea solo puede eliminarse si sigue pendiente. La tarea y sus materiales asociados se borrarán."
+            data-confirm-button="Eliminar"
+            data-confirm-button-class="btn-danger"
+            data-confirm-tarea-id="{{ tarea.id }}"
+          >
+            Eliminar tarea
+          </button>
+          {% endif %}
+          <a href="{% url 'detalle_pedido' tarea.pedido.id %}" class="btn btn-outline-secondary w-100">Volver al pedido</a>
+          <button type="button" class="btn btn-warning w-100 mb-2" data-bs-toggle="modal" data-bs-target="#modalDevolverTarea">
+  Devolver tarea al Operario
+</button>
+        </div>
       </div>
     </div>
 
-    <div class="card-body">
-      
-
-      <h5 class="card-subtitle mb-3">Diagnóstico del Operario</h5>
-      
-      <div class="card mb-4">
+    <div class="col-lg-7">
+      <div class="card section-card mb-4">
+        <div class="card-header">
+          <h5 class="mb-0">Diagnóstico del operario</h5>
+        </div>
         <div class="card-body">
           {% if observacion %}
-            <div class="row">
+            <div class="row g-3">
               <div class="col-md-6">
-                <p class="mb-2"><strong>Sugerencia Técnica:</strong> <span class="badge bg-secondary">{{ observacion.sugerencia_tecnica|upper }}</span></p>
-                <p class="mb-2"><strong>Valor Diagrama:</strong> {{ observacion.valor_diagrama|default:'-' }}
-                  {% if observacion.valor_diagrama %}
-                    {% if observacion.valor_diagrama >= tarea.amortiguador.fichaamortiguador.valor_minimo and observacion.valor_diagrama <= tarea.amortiguador.fichaamortiguador.valor_maximo %}
-                      <span class="badge bg-success ms-1">Aceptable</span>
-                    {% else %}
-                      <span class="badge bg-danger ms-1">No Aceptable</span>
-                    {% endif %}
-                  {% endif %}
-                </p>
-                <p class="mb-1 mt-3"><strong>Comentarios del Operario:</strong></p>
-                <p class="small text-muted">{{ observacion.detalle_operario|default:'Sin comentarios adicionales.'|linebreaksbr }}</p>
+                <div class="entity-meta">
+                  <div><strong>Sugerencia técnica:</strong> {{ observacion.sugerencia_tecnica|default:'-'|capfirst }}</div>
+                  <div><strong>Valor diagrama:</strong> {{ observacion.valor_diagrama|default:'-' }}</div>
+                </div>
+                <p class="small text-muted mt-3 mb-0">{{ observacion.detalle_operario|default:'Sin comentarios adicionales.'|linebreaksbr }}</p>
               </div>
               <div class="col-md-6">
-                <p class="mb-1"><strong>Comentario automático:</strong></p>
-                <div class="small text-muted font-monospace" style="white-space: pre-wrap; background: rgba(0,0,0,0.03); padding: 10px; border-radius: 8px;">{{ observacion.detalle_autogenerado }}</div>
-                <div class="small text-muted mt-2">Fecha de registro: {{ observacion.fecha }}</div>
+                <div class="bg-light border rounded-4 p-3 h-100">
+                  <div class="fw-semibold mb-2">Comentario automático</div>
+                  <div class="small text-muted" style="white-space: pre-wrap;">{{ observacion.detalle_autogenerado }}</div>
+                  <div class="small text-muted mt-3">Fecha de registro: {{ observacion.fecha }}</div>
+                </div>
               </div>
             </div>
           {% else %}
-            <p class="text-muted mb-0">El operario aún no ha cargado el diagnóstico para esta tarea.</p>
+            <div class="alert alert-light mb-0">El operario aún no ha cargado el diagnóstico para esta tarea.</div>
           {% endif %}
         </div>
       </div>
 
-      {% if tarea.estado == 'no revisada' or tarea.estado == 'terminada' or tarea.estado == 'por reparar' %}
-      <p class="small text-muted mb-3">Si cambias el tipo de tarea, los materiales sugeridos se conservan y no puedes modificar sus cantidades.</p>
-      
-      <div class="card mb-3">
-        <div class="card-body">
-          <h6 class="card-title">Decisión del Encargado</h6>
-          <p class="small text-muted mb-3">Las cantidades sugeridas quedan fijas; solo puedes definir si la tarea será control o reparación.</p>
-          <form action="" method="post">
-            {% csrf_token %}
-            <div class="d-flex align-items-center mb-3">
-              <label class="me-2 mb-0">Definir Tipo Final:</label>
-              <select id="tipoTareaSelect" name="tipoTarea" class="form-select form-select-sm me-2" style="width: 200px;">
-                <option value="control" {% if tarea.tipoTarea == 'control' %}selected{% endif %}>Control</option>
-                <option value="reparacion" {% if tarea.tipoTarea == 'reparacion' %}selected{% endif %}>Reparación</option>
-              </select>
-            </div>
-
-            <div id="tablaMateriales" class="table-responsive">
-              <table class="table table-sm table-hover align-middle">
-                <thead class="table-light">
-                  <tr>
-                    <th>Material</th>
-                    <th>Máximo (Ficha)</th>
-                    <th>Cantidad sugerida</th>
-                    <th>Costo unit.</th>
-                    <th>Precio venta</th>
-                    <th>Subtotal</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for mat in materiales_sugeribles %}
-                  <tr>
-                    <td>{{ mat.material_tipo }}</td>
-                    <td>{{ mat.cantidad_maxima }}</td>
-                    <td>{{ mat.cantidad_sugerida }}</td>
-                    <td>${{ mat.costo_unitario|floatformat:2 }}</td>
-                    <td>${{ mat.precio_venta|floatformat:2 }}</td>
-                    <td>${{ mat.subtotal|floatformat:2 }}</td>
-                  </tr>
-                  {% endfor %}
-                </tbody>
-                <tfoot>
-                  <tr class="table-light fw-bold">
-                    <td colspan="5" class="text-end">Total estimado</td>
-                    <td>${{ total_estimado_materiales|floatformat:2 }}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-            <button type="submit" name="accion" value="guardar_tipo_materiales" class="btn btn-primary btn-sm">Guardar Decisión</button>
-          </form>
+      {% if mostrar_materiales_sugeridos %}
+      <div class="card section-card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <div>
+            <h5 class="mb-0">Materiales sugeridos</h5>
+            <small class="text-muted">Solo lectura, no editable desde esta pantalla.</small>
+          </div>
+          <span class="badge text-bg-light border">Total estimado: ${{ total_estimado_materiales|floatformat:2 }}</span>
         </div>
-      </div>
-      {% endif %}
-
-      {% if materialxtarea and tarea.pedido.estado == 'terminado' %}
-      <div class="card mb-3">
         <div class="card-body">
-          <h6 class="card-title">Consumo Real Registrado</h6>
           <div class="table-responsive">
-            <table class="table table-sm table-bordered">
-              <thead class="table-light">
+            <table class="table table-sm table-hover align-middle mb-0 table-smooth-borders">
+              <thead>
                 <tr>
                   <th>Material</th>
-                  <th>Cantidad Reservada</th>
-                  <th>Cantidad Usada Real</th>
+                  <th class="text-center">Máximo</th>
+                  <th class="text-center">Sugerido</th>
+                  <th class="text-end">Costo unit.</th>
+                  <th class="text-end">Precio venta</th>
+                  <th class="text-end">Subtotal</th>
                 </tr>
               </thead>
               <tbody>
-                {% for mat in materialxtarea %}
+                {% for mat in materiales_sugeribles_visibles %}
                 <tr>
-                  <td>{{ mat.material.tipo }}</td>
-                  <td>{{ mat.stockrecomendado }}</td>
-                  <td>{{ mat.stockusado|default:'-' }}</td>
+                  <td>{{ mat.material_tipo }}</td>
+                  <td class="text-center">{{ mat.cantidad_maxima }}</td>
+                  <td class="text-center">{{ mat.cantidad_sugerida }}</td>
+                  <td class="text-end">${{ mat.costo_unitario|floatformat:2 }}</td>
+                  <td class="text-end">${{ mat.precio_venta|floatformat:2 }}</td>
+                  <td class="text-end">${{ mat.subtotal|floatformat:2 }}</td>
                 </tr>
                 {% endfor %}
               </tbody>
@@ -133,26 +122,60 @@
       </div>
       {% endif %}
 
-      <a href="{% url 'detalle_pedido' tarea.pedido.id %}" class="btn btn-outline-secondary mt-2">Volver al pedido</a>
+      {% if materialxtarea and tarea.pedido.estado == 'terminado' %}
+      <div class="card section-card">
+        <div class="card-header">
+          <h5 class="mb-0">Consumo real registrado</h5>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0 table-smooth-borders">
+              <thead>
+                <tr>
+                  <th>Material</th>
+                  <th class="text-center">Cantidad reservada</th>
+                  <th class="text-center">Cantidad usada</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for mat in materialxtarea %}
+                <tr>
+                  <td>{{ mat.material.tipo }}</td>
+                  <td class="text-center">{{ mat.stockrecomendado }}</td>
+                  <td class="text-center">{{ mat.stockusado|default:'-' }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      {% endif %}
     </div>
   </div>
 </div>
-
-<script>
-  const tipoTareaSelect = document.getElementById('tipoTareaSelect');
-  const tablaMateriales = document.getElementById('tablaMateriales');
-
-  function toggleTableMateriales() {
-    if (tipoTareaSelect.value === 'reparacion') {
-      tablaMateriales.style.display = 'block';
-    } else {
-      tablaMateriales.style.display = 'none';
-      const inputs = tablaMateriales.querySelectorAll('input[type="number"]');
-      inputs.forEach(input => input.value = 0);
-    }
-  }
-
-  toggleTableMateriales();
-  tipoTareaSelect.addEventListener('change', toggleTableMateriales);
-</script>
+<div class="modal fade" id="modalDevolverTarea" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-dark text-white">
+        <h5 class="modal-title">Devolver Tarea #{{ tarea.id }}</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form method="post">
+        {% csrf_token %}
+        <div class="modal-body">
+          <input type="hidden" name="accion" value="devolver_tarea">
+          <p class="text-muted small mb-3">La tarea volverá al estado "Pendiente" en la bandeja del operario {{ tarea.operario.nombre }} para que corrija la sugerencia de materiales o el tipo de tarea.</p>
+          
+          <label class="form-label fw-bold">Motivo de la devolución</label>
+          <textarea class="form-control" name="motivo_devolucion" rows="3" placeholder="Ej: Las cantidades sugeridas de aceite exceden la ficha técnica..." required></textarea>
+        </div>
+        <div class="modal-footer bg-light">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-warning text-dark fw-bold">Confirmar devolución</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 {% endblock %}

@@ -18,6 +18,7 @@ class Pedido(models.Model):
   cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE)
   total_estimado = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
   cancelado = models.BooleanField(default=False)
+  fecha_ultimo_cambio = models.DateTimeField(auto_now=True)
 
 
 class Comprobante(models.Model):

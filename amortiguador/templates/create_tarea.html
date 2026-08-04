@@ -9,167 +9,134 @@
       <small class="text-muted">Pedido #{{ pedido.id }} • Cliente: {{ pedido.cliente.nombre }} {{ pedido.cliente.apellido }}</small>
     </div>
     <a href="{% url 'detalle_pedido' pedido.id %}" class="btn btn-outline-secondary">
-      <i class="bi bi-arrow-left"></i> Volver
+      <i class="bi bi-arrow-left"></i> Volver al Pedido
     </a>
   </div>
 
-  <!-- OPERARIOS DISPONIBLES -->
+  <!-- PASO 1: BÚSQUEDA DE AMORTIGUADOR (Se oculta si ya se buscó) -->
+  {% if not amortiguador and not no_amortiguador %}
   <div class="card shadow-sm mb-4 border-0">
     <div class="card-header bg-secondary text-white fw-bold">
-      <i class="bi bi-people"></i> Operarios Disponibles
+      Paso 1: Buscar Amortiguador
     </div>
-    <div class="card-body">
-      <div class="row g-2">
-        {% for operario in operarios %}
-        <div class="col-md-6 col-lg-3">
-          <div class="p-3 bg-light rounded">
-            <div class="fw-bold">{{ operario.nombre }} {{ operario.apellido }}</div>
-            <small class="text-muted">Legajo: {{ operario.legajo }}</small>
-            <div class="mt-2">
-              <span class="badge bg-info">{{ operario.tareas_pendientes }} tarea{% if operario.tareas_pendientes != 1 %}s{% endif %}</span>
-            </div>
-          </div>
-        </div>
-        {% empty %}
-        <div class="col-12">
-          <div class="alert alert-warning mb-0">
-            <i class="bi bi-exclamation-triangle"></i> No hay operarios registrados.
-          </div>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-  </div>
-
-  <!-- BÚSQUEDA DE AMORTIGUADOR -->
-  <div class="card shadow-sm mb-4 border-0">
-    <div class="card-header bg-secondary text-white fw-bold">
-      <i class="bi bi-search"></i> Buscar Amortiguador
-    </div>
-    <div class="card-body">
+    <div class="card-body p-4">
       <form method="post" class="mb-0">
         {% csrf_token %}
         <input type="hidden" name="accion" value="buscar" />
-        <div class="row g-3">
+        <div class="row g-3 justify-content-center">
           <div class="col-md-8">
-            <label for="nroSerieamortiguador" class="form-label fw-bold">Número de Serie</label>
-            <input
-              type="text"
-              name="nroSerieamortiguador"
-              id="nroSerieamortiguador"
-              value="{{ nroSerieamortiguador }}"
-              class="form-control"
-              placeholder="Ingrese el número de serie..."
-              required
-            />
+            <label for="nroSerieamortiguador" class="form-label fw-bold text-center w-100 mb-3">Ingrese el Número de Serie físico del amortiguador</label>
+            <div class="input-group input-group-lg">
+              <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
+              <input
+                type="text"
+                name="nroSerieamortiguador"
+                id="nroSerieamortiguador"
+                class="form-control text-center fs-4"
+                placeholder="Ej: 998877"
+                required
+                autofocus
+              />
+              <button type="submit" class="btn btn-primary px-4 fw-bold">Buscar</button>
+            </div>
           </div>
-          <div class="col-md-4 d-flex align-items-end">
-            <button type="submit" class="btn btn-primary w-100">
-              <i class="bi bi-search"></i> Buscar
-            </button>
-          </div>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- SI AMORTIGUADOR ENCONTRADO -->
-  {% if amortiguador %}
-  <div class="card shadow-sm border-secondary border-2 mb-4">
-    <div class="card-header bg-secondary text-white fw-bold">
-      <i class="bi bi-check-circle"></i> Amortiguador Encontrado
-    </div>
-    <div class="card-body">
-      <div class="row mb-4">
-        <div class="col-md-8">
-          <h6 class="text-muted mb-2">Serie</h6>
-          <h5 class="mb-0">{{ amortiguador.nroSerieamortiguador }}</h5>
-        </div>
-        <div class="col-md-4">
-          <h6 class="text-muted mb-2">Tipo</h6>
-          <h5 class="mb-0">{{ amortiguador.tipo }}</h5>
-        </div>
-      </div>
-
-      <form method="post" class="mb-0">
-        {% csrf_token %}
-        <input type="hidden" name="accion" value="crear_tarea" />
-        <input type="hidden" name="id_amortiguador" value="{{ amortiguador.id }}">
-        
-        <div class="row g-3">
-          <div class="col-md-6">
-            <label for="operario" class="form-label fw-bold">Operario Asignado</label>
-            <select name="operario" id="operario" class="form-select" required>
-              <option value="">Seleccione un operario...</option>
-              {% for op in operarios %}
-              <option value="{{ op.id }}">{{ op.nombre }} {{ op.apellido }} (L. {{ op.legajo }}) - {{ op.tareas_pendientes }} tarea{% if op.tareas_pendientes != 1 %}s{% endif %}</option>
-              {% endfor %}
-            </select>
-          </div>
-          
-          <div class="col-md-6">
-            <label for="prioridad" class="form-label fw-bold">Prioridad</label>
-            <select name="prioridad" id="prioridad" class="form-select" required>
-              <option value="">Seleccione la prioridad...</option>
-              <option value="alta">🔴 Alta</option>
-              <option value="media" selected>🟡 Media</option>
-              <option value="baja">🟢 Baja</option>
-            </select>
-          </div>
-        </div>
-
-        <hr class="my-4">
-
-        <div class="d-flex gap-2">
-          <button type="submit" class="btn btn-success btn-lg flex-grow-1">
-            <i class="bi bi-plus-circle"></i> Crear Tarea
-          </button>
-          <a href="{% url 'detalle_pedido' pedido.id %}" class="btn btn-outline-secondary btn-lg">
-            <i class="bi bi-x-circle"></i> Cancelar
-          </a>
         </div>
       </form>
     </div>
   </div>
   {% endif %}
 
-  <!-- SI AMORTIGUADOR NO ENCONTRADO - CREAR NUEVO -->
-  {% if no_amortiguador %}
-  <div class="card shadow-sm border-secondary border-2 mb-4">
-    <div class="card-header bg-secondary text-white fw-bold">
-      <i class="bi bi-exclamation-circle"></i> Crear Nuevo Amortiguador
-    </div>
-    <div class="card-body">
-      <p class="text-muted mb-4">
-        El amortiguador con serie <strong>{{ nroSerieamortiguador }}</strong> no existe. 
-        Complete el formulario para crear uno nuevo.
-      </p>
-
-      <form method="post" class="mb-0">
-        {% csrf_token %}
-        <input type="hidden" name="accion" value="crear_amortiguador_tarea" />
+  <!-- PASO 2A: SI EL AMORTIGUADOR EXISTE -->
+  {% if amortiguador %}
+  <form method="post" class="mb-4">
+    {% csrf_token %}
+    <input type="hidden" name="accion" value="crear_tarea" />
+    <input type="hidden" name="id_amortiguador" value="{{ amortiguador.id }}">
+    
+    <div class="card shadow-sm border-success border-2 mb-4">
+      <div class="card-header bg-success text-white fw-bold">
+        <i class="bi bi-check-circle"></i> Amortiguador Encontrado
+      </div>
+      <div class="card-body p-4">
         
-        <!-- SECCIÓN 1: DETALLES DEL AMORTIGUADOR -->
+        <!-- Info del amortiguador -->
+        <div class="row mb-4 bg-light p-3 rounded">
+          <div class="col-md-6">
+            <h6 class="text-muted mb-1">Número de Serie</h6>
+            <h4 class="mb-0 text-dark fw-bold">{{ amortiguador.nroSerieamortiguador }}</h4>
+          </div>
+          <div class="col-md-6 border-start">
+            <h6 class="text-muted mb-1">Ficha Técnica Asociada</h6>
+            <h5 class="mb-0 text-dark">{{ amortiguador.fichaamortiguador.nombregenerico }}</h5>
+          </div>
+        </div>
+
+        <!-- Prioridad -->
+        <div class="mb-4">
+          <label for="prioridad" class="form-label fw-bold"><i class="bi bi-flag"></i> Prioridad de la tarea</label>
+          <select name="prioridad" id="prioridad" class="form-select form-select-lg" style="max-width: 300px;" required>
+            <option value="alta">🔴 Alta</option>
+            <option value="media" selected>🟡 Media</option>
+            <option value="baja">🟢 Baja</option>
+          </select>
+        </div>
+
+        <!-- OPERARIOS EN FORMATO CARDS -->
         <div class="section-divider mb-4">
-          <h6 class="fw-bold text-dark mb-3">
-            <i class="bi bi-gear"></i> Detalles del Amortiguador
-          </h6>
-          
+          <h6 class="fw-bold text-dark mb-3"><i class="bi bi-people"></i> Asignar Operario (Seleccione uno)</h6>
           <div class="row g-3">
-            <div class="col-md-6">
-              <label for="nroSerieamortiguador" class="form-label fw-bold">Número de Serie</label>
-              <input
-                type="text"
-                name="nroSerieamortiguador"
-                id="nroSerieamortiguador"
-                value="{{ nroSerieamortiguador }}"
-                class="form-control"
-                placeholder="Ej: 123456"
-                required
-              />
+            {% for operario in operarios %}
+            <div class="col-md-6 col-lg-4">
+              <!-- Radio button oculto -->
+              <input type="radio" name="operario" id="op_exist_{{ operario.id }}" value="{{ operario.id }}" class="d-none operator-radio" required>
+              <!-- Label con forma de tarjeta -->
+              <label class="card operator-card h-100 border-2" for="op_exist_{{ operario.id }}">
+                <div class="card-body">
+                  <div class="fw-bold fs-5 text-dark">{{ operario.nombre }} {{ operario.apellido }}</div>
+                  <small class="text-muted d-block mb-3">Legajo: {{ operario.legajo }}</small>
+                  <span class="badge {% if operario.tareas_pendientes > 5 %}bg-warning text-dark{% else %}bg-info text-dark{% endif %} px-3 py-2 w-100">
+                    <i class="bi bi-inbox"></i> {{ operario.tareas_pendientes }} tarea{% if operario.tareas_pendientes != 1 %}s{% endif %} asignada{% if operario.tareas_pendientes != 1 %}s{% endif %}
+                  </span>
+                </div>
+              </label>
             </div>
-            
-            <div class="col-md-6">
+            {% endfor %}
+          </div>
+        </div>
+
+        <hr class="my-4">
+        <div class="d-flex gap-2 justify-content-end">
+          <a href="{% url 'create_tarea' pedido.id %}" class="btn btn-outline-secondary btn-lg">Buscar otro</a>
+          <button type="submit" class="btn btn-success btn-lg px-5">
+            <i class="bi bi-plus-circle"></i> Confirmar y Crear Tarea
+          </button>
+        </div>
+      </div>
+    </div>
+  </form>
+  {% endif %}
+
+  <!-- PASO 2B: SI EL AMORTIGUADOR NO EXISTE (CREAR NUEVO) -->
+  {% if no_amortiguador %}
+  <form method="post" class="mb-4">
+    {% csrf_token %}
+    <input type="hidden" name="accion" value="crear_amortiguador_tarea" />
+    <input type="hidden" name="nroSerieamortiguador" value="{{ nroSerieamortiguador }}" />
+    
+    <div class="card shadow-sm border-primary border-2 mb-4">
+      <div class="card-header bg-primary text-white fw-bold">
+        <i class="bi bi-exclamation-circle"></i> Registrar Nuevo Amortiguador y Tarea
+      </div>
+      <div class="card-body p-4">
+        <div class="alert alert-info mb-4">
+          El amortiguador serie <strong>{{ nroSerieamortiguador }}</strong> es nuevo. Complete sus datos de fabricación para ingresarlo al sistema.
+        </div>
+        
+        <!-- DATOS DEL AMORTIGUADOR -->
+        <div class="section-divider mb-4">
+          <h6 class="fw-bold text-dark mb-3"><i class="bi bi-gear"></i> Datos del Amortiguador</h6>
+          <div class="row g-3">
+            <div class="col-md-4">
               <label for="tipo_amortiguador" class="form-label fw-bold">Tipo</label>
               <select name="tipo_amortiguador" id="tipo_amortiguador" class="form-select" required>
                 <option value="">Seleccione tipo...</option>
@@ -178,72 +145,65 @@
               </select>
             </div>
 
-            <div class="col-md-12">
+            <div class="col-md-8">
               <label for="ficha_input" class="form-label fw-bold">
-                Ficha Técnica
-                <small class="text-muted">(Buscar por nombre o nro. serie)</small>
+                Ficha Técnica <small class="text-muted">(Buscar por modelo o nro. serie genérico)</small>
               </label>
               <div class="position-relative">
-                <input
-                  type="text"
-                  id="ficha_input"
-                  class="form-control"
-                  placeholder="Escriba para buscar..."
-                  autocomplete="off"
-                />
-                <ul id="ficha_lista" class="list-group position-absolute w-100 mt-1" style="max-height: 250px; overflow-y: auto; display: none; z-index: 1000;">
-                </ul>
+                <input type="text" id="ficha_input" class="form-control" placeholder="Escriba para buscar modelo..." autocomplete="off"/>
+                <ul id="ficha_lista" class="list-group position-absolute w-100 mt-1 shadow" style="max-height: 250px; overflow-y: auto; display: none; z-index: 1000;"></ul>
               </div>
               <input type="hidden" name="ficha_amortiguador" id="ficha_amortiguador" required />
-              <small id="ficha_seleccionada" class="text-muted d-block mt-2"></small>
+              <div id="ficha_seleccionada" class="text-success fw-bold mt-2 d-none">
+                <i class="bi bi-check-circle-fill"></i> Ficha seleccionada: <span></span>
+              </div>
             </div>
           </div>
         </div>
 
-        <hr class="my-4">
+        <!-- Prioridad -->
+        <div class="mb-4 ps-4">
+          <label for="prioridad_nuevo" class="form-label fw-bold"><i class="bi bi-flag"></i> Prioridad de la tarea</label>
+          <select name="prioridad" id="prioridad_nuevo" class="form-select form-select-lg" style="max-width: 300px;" required>
+            <option value="alta">🔴 Alta</option>
+            <option value="media" selected>🟡 Media</option>
+            <option value="baja">🟢 Baja</option>
+          </select>
+        </div>
 
-        <!-- SECCIÓN 2: DETALLES DE LA TAREA -->
+        <!-- OPERARIOS EN FORMATO CARDS -->
         <div class="section-divider mb-4">
-          <h6 class="fw-bold text-dark mb-3">
-            <i class="bi bi-list-task"></i> Detalles de la Tarea
-          </h6>
-          
+          <h6 class="fw-bold text-dark mb-3"><i class="bi bi-people"></i> Asignar Operario (Seleccione uno)</h6>
           <div class="row g-3">
-            <div class="col-md-6">
-              <label for="operario" class="form-label fw-bold">Operario Asignado</label>
-              <select name="operario" id="operario" class="form-select" required>
-                <option value="">Seleccione un operario...</option>
-                {% for op in operarios %}
-                <option value="{{ op.id }}">{{ op.nombre }} {{ op.apellido }} (L. {{ op.legajo }})</option>
-                {% endfor %}
-              </select>
+            {% for operario in operarios %}
+            <div class="col-md-6 col-lg-4">
+              <!-- Radio button oculto -->
+              <input type="radio" name="operario" id="op_nuevo_{{ operario.id }}" value="{{ operario.id }}" class="d-none operator-radio" required>
+              <!-- Label con forma de tarjeta -->
+              <label class="card operator-card h-100 border-2" for="op_nuevo_{{ operario.id }}">
+                <div class="card-body">
+                  <div class="fw-bold fs-5 text-dark">{{ operario.nombre }} {{ operario.apellido }}</div>
+                  <small class="text-muted d-block mb-3">Legajo: {{ operario.legajo }}</small>
+                  <span class="badge {% if operario.tareas_pendientes > 5 %}bg-warning text-dark{% else %}bg-info text-dark{% endif %} px-3 py-2 w-100">
+                    <i class="bi bi-inbox"></i> {{ operario.tareas_pendientes }} tarea{% if operario.tareas_pendientes != 1 %}s{% endif %} asignada{% if operario.tareas_pendientes != 1 %}s{% endif %}
+                  </span>
+                </div>
+              </label>
             </div>
-            
-            <div class="col-md-6">
-              <label for="prioridad" class="form-label fw-bold">Prioridad</label>
-              <select name="prioridad" id="prioridad" class="form-select" required>
-                <option value="">Seleccione la prioridad...</option>
-                <option value="alta">🔴 Alta</option>
-                <option value="media" selected>🟡 Media</option>
-                <option value="baja">🟢 Baja</option>
-              </select>
-            </div>
+            {% endfor %}
           </div>
         </div>
 
         <hr class="my-4">
-
-        <div class="d-flex gap-2">
-          <button type="submit" class="btn btn-success btn-lg flex-grow-1">
-            <i class="bi bi-plus-circle"></i> Crear Amortiguador y Tarea
+        <div class="d-flex gap-2 justify-content-end">
+          <a href="{% url 'create_tarea' pedido.id %}" class="btn btn-outline-secondary btn-lg">Cancelar</a>
+          <button type="submit" class="btn btn-primary btn-lg px-5">
+            <i class="bi bi-save"></i> Registrar Amortiguador y Tarea
           </button>
-          <a href="{% url 'detalle_pedido' pedido.id %}" class="btn btn-outline-secondary btn-lg">
-            <i class="bi bi-x-circle"></i> Cancelar
-          </a>
         </div>
-      </form>
+      </div>
     </div>
-  </div>
+  </form>
   {% endif %}
 </div>
 
@@ -251,14 +211,35 @@
   .section-divider {
     padding: 1.5rem;
     background: #f8f9fa;
-    border-radius: 8px;
-    border-left: 4px solid #0d6efd;
+    border-radius: 12px;
+    border-left: 5px solid #0d6efd;
+  }
+  
+  /* ESTILOS PARA LAS TARJETAS SELECTORAS DE OPERARIO */
+  .operator-card {
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    background-color: #ffffff;
+    border-color: #dee2e6;
+  }
+  
+  .operator-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 .5rem 1rem rgba(0,0,0,.1);
+    border-color: #adb5bd;
+  }
+  
+  /* Cuando el radio oculto está "checked", la tarjeta hermana cambia su estilo */
+  .operator-radio:checked + .operator-card {
+    border-color: #0d6efd !important;
+    background-color: #f0f7ff;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
   }
 </style>
 
 <script>
+// El script de búsqueda de fichas que ya tenías, mantenido intacto
 document.addEventListener('DOMContentLoaded', function() {
-  // Datos de fichas técnicas
   const fichas = [
     {% for ficha in fichas %}
     {
@@ -274,14 +255,10 @@ document.addEventListener('DOMContentLoaded', function() {
   const fichaSeleccionada = document.getElementById('ficha_seleccionada');
   const fichaHidden = document.getElementById('ficha_amortiguador');
 
-  if (!fichaInput || !fichaLista || !fichaHidden) {
-    console.error('No se encontraron los elementos de ficha');
-    return;
-  }
+  if (!fichaInput) return;
 
   function mostrarOpciones(texto = '') {
     fichaLista.innerHTML = '';
-    
     const searchText = texto.toLowerCase();
     const resultados = fichas.filter(ficha => 
       ficha.nombre.toLowerCase().includes(searchText) || 
@@ -301,38 +278,27 @@ document.addEventListener('DOMContentLoaded', function() {
     
     resultados.forEach(ficha => {
       const li = document.createElement('li');
-      li.className = 'list-group-item';
+      li.className = 'list-group-item list-group-item-action cursor-pointer';
       li.style.cursor = 'pointer';
       li.innerHTML = `<strong>[${ficha.serie}]</strong> ${ficha.nombre}`;
+      
       li.addEventListener('click', function() {
         fichaInput.value = `[${ficha.serie}] ${ficha.nombre}`;
         fichaHidden.value = ficha.id;
-        fichaSeleccionada.textContent = `✓ Ficha seleccionada: ${ficha.nombre}`;
+        
+        // Muestra el mensaje de éxito debajo del input
+        fichaSeleccionada.querySelector('span').textContent = ficha.nombre;
+        fichaSeleccionada.classList.remove('d-none');
+        
         fichaLista.style.display = 'none';
-      });
-      li.addEventListener('mouseenter', function() {
-        li.style.backgroundColor = '#e9ecef';
-      });
-      li.addEventListener('mouseleave', function() {
-        li.style.backgroundColor = 'transparent';
       });
       fichaLista.appendChild(li);
     });
-    
     fichaLista.style.display = 'block';
   }
 
-  // Mostrar lista al enfocar
-  fichaInput.addEventListener('focus', function() {
-    mostrarOpciones(this.value);
-  });
-
-  // Filtrar mientras se escribe
-  fichaInput.addEventListener('input', function() {
-    mostrarOpciones(this.value);
-  });
-
-  // Cerrar lista al hacer click afuera
+  fichaInput.addEventListener('focus', function() { mostrarOpciones(this.value); });
+  fichaInput.addEventListener('input', function() { mostrarOpciones(this.value); });
   document.addEventListener('click', function(e) {
     if (e.target !== fichaInput && e.target !== fichaLista && !fichaLista.contains(e.target)) {
       fichaLista.style.display = 'none';

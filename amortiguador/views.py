@@ -20,6 +20,9 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.lib import colors
+from datetime import timedelta
+
+
 
 PRECIO_REVISION_BASE = Decimal('20000.00') 
 MANO_OBRA_REPARACION = Decimal('40000.00')  
@@ -688,51 +691,38 @@ def sincronizar_estado_pedido(pedido):
     if not tareas.exists():
         return False
 
+    # Si el pedido está "pendiente" es porque el encargado lo está creando recién.
+    # No lo sincronizamos automáticamente hasta que apriete el botón "Confirmar".
+    if pedido.estado == 'pendiente':
+        return False
+
     estados = [t.estado for t in tareas]
-    hay_tareas_no_revisadas = any(e == 'no revisada' for e in estados)
-    hay_tareas_por_reparar = any(e == 'por reparar' for e in estados)
-    todas_terminadas_o_control = all(e in ['terminada', 'por reparar'] for e in estados)
 
-    if all(e in ['terminada', 'por reparar'] for e in estados):
-
-        if all(e == 'terminada' for e in estados):
-
-            nuevo_estado = 'revisado'
-        elif any(e == 'en reparacion' for e in estados):
-            nuevo_estado = 'aprobado' if pedido.estado in ['revisado', 'aprobado', 'presupuestado'] else pedido.estado
-        elif hay_tareas_por_reparar and not hay_tareas_no_revisadas:
-            if pedido.estado == 'aprobado':
-                nuevo_estado = 'aprobado'
-            else:
-                nuevo_estado = 'presupuestado'
-        else:
-            nuevo_estado = pedido.estado
+    # 1. Si TODAS las tareas están pendientes
+    if all(e == 'pendiente' for e in estados):
+        nuevo_estado = 'asignado'
+        
+    # 2. Si TODAS están no revisadas
+    elif all(e == 'no revisada' for e in estados):
+        nuevo_estado = 'revisado'
+        
+    # 3. Si hay alguna en reparación (ya fue aprobado por el cliente)
     elif any(e == 'en reparacion' for e in estados):
         nuevo_estado = 'aprobado' if pedido.estado in ['revisado', 'aprobado', 'presupuestado'] else pedido.estado
-    elif any(e == 'pendiente' for e in estados):
+        
+    # 4. Si hay alguna por reparar (esperando aprobación del cliente)
+    elif any(e == 'por reparar' for e in estados):
+        nuevo_estado = 'presupuestado' if pedido.estado != 'aprobado' else 'aprobado'
+        
+    # 5. Si hay mezcla (al menos una no revisada, o algunas terminadas y otras pendientes, etc.)
+    elif any(e == 'no revisada' for e in estados) or any(e == 'pendiente' for e in estados):
         nuevo_estado = 'en curso'
-    elif not any(e == 'pendiente' for e in estados):
-
-        if hay_tareas_por_reparar and not hay_tareas_no_revisadas:
-  
-            if pedido.estado == 'aprobado':
-                nuevo_estado = 'aprobado'
-            else:
-                nuevo_estado = 'presupuestado'
-        elif any(e in ['no revisada', 'por reparar'] for e in estados):
-         
-            if pedido.estado == 'aprobado':
-                nuevo_estado = 'aprobado'
-            else:
-                nuevo_estado = 'revisado'
-        else:
-            nuevo_estado = pedido.estado
+        
     else:
         nuevo_estado = pedido.estado
 
     if pedido.estado != nuevo_estado:
         pedido.estado = nuevo_estado
-        
         if nuevo_estado == 'terminado' and not pedido.fecha_finalizacion:
             pedido.fecha_finalizacion = timezone.now().date()
         pedido.save(update_fields=['estado', 'fecha_finalizacion'])
@@ -767,6 +757,9 @@ def _can_perform_tarea_action(request, tarea, accion):
         return role == 'encargado'
 
     if accion == 'agregarmaterialtarea':
+        return role == 'encargado'
+
+    if accion == 'eliminar_tarea':
         return role == 'encargado'
 
     if accion in {'terminarobservacioncontrol', 'reservar_materiales', 'finalizartarea'}:
@@ -825,33 +818,33 @@ def _obtener_desglose_presupuesto(pedido):
     tareas = pedido.tarea_set.all()
     num_tareas = tareas.count()
     precio_revision_total = num_tareas * PRECIO_REVISION_BASE
-    
 
     tareas_reparacion = tareas.filter(tipoTarea='reparacion')
     num_tareas_reparacion = tareas_reparacion.count()
     total_mano_obra_reparacion = num_tareas_reparacion * MANO_OBRA_REPARACION
-    
-   
+
     materiales_agrupados = {}
     fecha_hoy = timezone.now().date()
-    
-    for tarea in tareas:
-        
+
+    # --- ACÁ ESTABA EL ERROR: Faltaban los bucles para recorrer las tareas y materiales ---
+    for tarea in tareas_reparacion:
         for mat_sugerido in tarea.materialtarea_set.all():
             material = mat_sugerido.material
             precio_actual = _obtener_precio_en_fecha(material, fecha_hoy)
             material_id = material.id
+            
             if material_id not in materiales_agrupados:
                 materiales_agrupados[material_id] = {
-                    'nombre': material.tipo,
+                    'nombre': material.tipo, # o material.nombre dependiendo de tu modelo
                     'precio_unitario': precio_actual,
                     'cantidad_total': Decimal('0'),
                 }
             materiales_agrupados[material_id]['cantidad_total'] += mat_sugerido.stockrecomendado
-    
+    # -------------------------------------------------------------------------------------
 
     desglose_materiales = []
     total_materiales = Decimal('0.00')
+    
     for mat_data in materiales_agrupados.values():
         subtotal = mat_data['cantidad_total'] * mat_data['precio_unitario']
         total_materiales += subtotal
@@ -861,10 +854,9 @@ def _obtener_desglose_presupuesto(pedido):
             'precio_unitario': mat_data['precio_unitario'],
             'subtotal': subtotal,
         })
-    
 
     total_general = precio_revision_total + total_materiales + total_mano_obra_reparacion
-    
+
     return {
         'num_tareas': num_tareas,
         'precio_revision_unitario': PRECIO_REVISION_BASE,
@@ -876,7 +868,6 @@ def _obtener_desglose_presupuesto(pedido):
         'total_materiales': total_materiales,
         'total_general': total_general,
     }
-
 
 def _obtener_presupuesto_real(pedido):
     """
@@ -993,7 +984,8 @@ def _actualizar_estado_pedido_si_corresponde(pedido):
     if tareas_pedido.exists() and tareas_pedido.exclude(estado='terminada').count() == 0:
         if pedido.estado != 'terminado':
             pedido.estado = 'terminado'
-            pedido.save(update_fields=['estado'])
+            pedido.fecha_ultimo_cambio = timezone.now()
+            pedido.save(update_fields=['estado', 'fecha_ultimo_cambio'])
         return True
     return False
 
@@ -1010,11 +1002,14 @@ def _generar_comprobante_pdf(pedido, tareas):
         f"Fecha: {fecha_actual}",
         f"Cliente: {cliente}",
         f"DNI: {pedido.cliente.dni}",
+        f"Teléfono: {pedido.cliente.telefono}",
+        f"Correo: {pedido.cliente.correo}",
         f"Presupuesto estimado: ${_obtener_presupuesto_estimado(pedido)}",
+        
     ]
     
 
-    if pedido.estado in ('terminado', 'retirado'):
+    if pedido.estado in ('terminado', 'retirado', 'notificado'):
         presupuesto_real = _obtener_presupuesto_real(pedido)
         lineas.extend([
             "",
@@ -1046,6 +1041,12 @@ def _generar_comprobante_pdf(pedido, tareas):
             )
     else:
         lineas.append("- Sin tareas asociadas")
+
+
+    if pedido.cancelado:
+        lineas.append("")
+        lineas.append("** Este pedido ha sido cancelado **")
+
 
     comandos = ["BT", "/F1 11 Tf", "40 800 Td"]
     for index, linea in enumerate(lineas):
@@ -1088,20 +1089,90 @@ def home(request):
         return redirect('login')
 
     operario = getattr(request.user, 'operario', None)
-    
+
     if operario:
         if operario.role == 'operario':
             return redirect('paneltareas')
-        elif operario.role == 'encargado':
-            return redirect('listapedidos')
-        elif operario.role == 'encargado_materiales':
+        if operario.role == 'encargado_materiales':
             return redirect('control_inventario')
-    elif getattr(request.user, 'is_superuser', False):
-     
-        return redirect('listapedidos')
-    
-    return render(request, 'home.html')
 
+    hoy = timezone.now().date()
+    hace_30_dias = hoy - timedelta(days=30)
+    seis_meses_atras = hoy - timedelta(days=180)
+
+    # 1. KPIs (Tarjetas Superiores)
+    pedidos_activos = Pedido.objects.filter(cancelado=False).exclude(
+        estado__in=['terminado', 'retirado', 'notificado']
+    )
+    total_activos = pedidos_activos.count()
+    
+    # Atrasados de los últimos 30 días
+    pedidos_atrasados_30d = pedidos_activos.filter(
+        fechaSalidaEstimada__lt=hoy,
+        fechaSalidaEstimada__gte=hace_30_dias
+    ).count()
+
+    tareas_pendientes = Tarea.objects.filter(estado='pendiente').count()
+    alertas_stock = Material.objects.filter(stockActual__lt=F('stockMinimo')).count()
+    materiales_stock_bajo = Material.objects.filter(stockActual__lt=F('stockMinimo')).order_by('tipo')
+
+    # 2. Gráfico 1: Ganancias de Pedidos Retirados (Últimos 6 meses)
+    pedidos_retirados = Pedido.objects.filter(
+        estado='retirado', 
+        cancelado=False, 
+        fechaSalidaReal__gte=seis_meses_atras
+    )
+    
+    ventas_por_mes = {}
+    for p in pedidos_retirados:
+        if p.fechaSalidaReal:
+            mes_key = p.fechaSalidaReal.strftime('%Y-%m') # Formato: 2026-08
+            ventas_por_mes[mes_key] = ventas_por_mes.get(mes_key, Decimal('0.00')) + (p.total_estimado or Decimal('0.00'))
+
+    meses_es = {'01':'Ene', '02':'Feb', '03':'Mar', '04':'Abr', '05':'May', '06':'Jun', '07':'Jul', '08':'Ago', '09':'Sep', '10':'Oct', '11':'Nov', '12':'Dic'}
+    meses_ordenados = sorted(ventas_por_mes.keys())
+    
+    labels_ganancias = [f"{meses_es[m.split('-')[1]]} {m.split('-')[0]}" for m in meses_ordenados]
+    data_ganancias = [float(ventas_por_mes[m]) for m in meses_ordenados]
+
+    # 3. Gráfico 2: Cancelados vs Retirados (Éxito de operaciones)
+    total_cancelados = Pedido.objects.filter(cancelado=True).count()
+    total_retirados = Pedido.objects.filter(estado='retirado', cancelado=False).count()
+    
+    labels_comparativa = ['Retirados (Éxito)', 'Cancelados']
+    data_comparativa = [total_retirados, total_cancelados]
+
+    # 4. Listado de Operarios con tareas activas
+    operarios_activos = Operario.objects.filter(role='operario').annotate(
+        total_pendientes=Count('tarea', filter=Q(tarea__estado__in=['pendiente', 'por reparar', 'en reparacion'])),
+        solo_pendientes=Count('tarea', filter=Q(tarea__estado='pendiente')),
+        por_reparar=Count('tarea', filter=Q(tarea__estado='por reparar')),
+        en_reparacion=Count('tarea', filter=Q(tarea__estado='en reparacion'))
+    ).filter(total_pendientes__gt=0).order_by('-total_pendientes')
+
+    context = {
+        'total_activos': total_activos,
+        'pedidos_atrasados_30d': pedidos_atrasados_30d,
+        'tareas_pendientes': tareas_pendientes,
+        'alertas_stock': alertas_stock,
+        'materiales_stock_bajo': materiales_stock_bajo,
+        
+        # Gráficos
+        'labels_ganancias': labels_ganancias,
+        'data_ganancias': data_ganancias,
+        'labels_comparativa': labels_comparativa,
+        'data_comparativa': data_comparativa,
+        
+        # Operarios
+        'operarios_activos': operarios_activos,
+        
+        'role': operario.role if operario else 'encargado',
+    }
+
+    if getattr(request.user, 'is_superuser', False) or not operario or operario.role == 'encargado':
+        return render(request, 'home.html', context)
+
+    return redirect('login')
 
 def login_view(request):
     if request.method == 'POST':
@@ -1164,9 +1235,9 @@ def createpedido(request):
 @role_required(['encargado'])
 def detalle_pedido(request, pedido_id):
     pedido = get_object_or_404(Pedido, id=pedido_id)
-    tareas = Tarea.objects.select_related('amortiguador').filter(pedido=pedido)
+    tareas = Tarea.objects.select_related('amortiguador', 'operario', 'pedido', 'pedido__cliente').filter(pedido=pedido).order_by('id')
     editar_plan = request.GET.get('editar_plan') == '1'
-    
+    operarios_disponibles = Operario.objects.filter(role='operario').order_by('nombre')
     mensaje_exito = None
 
     tareas_reparacion_editables = tareas.filter(tipoTarea='reparacion', estado='por reparar')
@@ -1174,11 +1245,12 @@ def detalle_pedido(request, pedido_id):
     todastareasrevisadas = not tareas.exclude(estado__in=['terminada', 'por reparar']).exists() if tareas.exists() else False
   
     if tareas.exists() and tareas.exclude(estado='terminada').count() == 0:
-        if pedido.estado not in ('terminado', 'retirado'):
+        if pedido.estado not in ('terminado', 'retirado', 'notificado'):
             pedido.estado = 'terminado'
+            pedido.fecha_ultimo_cambio = timezone.now()
             if not pedido.fecha_finalizacion:
                 pedido.fecha_finalizacion = timezone.now().date()
-            pedido.save(update_fields=['estado', 'fecha_finalizacion'])
+            pedido.save(update_fields=['estado', 'fecha_finalizacion', 'fecha_ultimo_cambio'])
     
     presupuesto_estimado = 0
     desglose_presupuesto = None
@@ -1187,7 +1259,7 @@ def detalle_pedido(request, pedido_id):
     if pedido.estado in ('revisado', 'presupuestado'):
         presupuesto_estimado = _obtener_presupuesto_estimado(pedido)
         desglose_presupuesto = _obtener_desglose_presupuesto(pedido)
-    elif pedido.estado in ('terminado', 'retirado'):
+    elif pedido.estado in ('terminado', 'retirado', 'notificado'):
   
         presupuesto_real = _obtener_presupuesto_real(pedido)
     
@@ -1196,20 +1268,45 @@ def detalle_pedido(request, pedido_id):
     if request.method == 'POST':
         accion = request.POST.get('accion')
         if accion == 'eliminar_tarea':
-
-            if pedido.estado != 'pendiente':
-                messages.error(request, 'Solo se pueden eliminar tareas cuando el pedido está en estado pendiente.')
-                return redirect('detalle_pedido', pedido_id=pedido.id)
-            
             tarea_id = request.POST.get('tarea_id')
             try:
                 tarea = Tarea.objects.get(id=tarea_id, pedido=pedido)
+                if tarea.estado != 'pendiente':
+                    messages.error(request, 'Solo puedes eliminar tareas que estén pendientes.')
+                    return redirect('detalle_pedido', pedido_id=pedido.id)
+                
+                # REGLA DE NEGOCIO: "Si hay alguna pendiente se pueden eliminar pero NO todas"
+                if tareas.count() == 1:
+                    messages.error(request, 'No puedes eliminar la única tarea del pedido. Si quieres cancelar el trabajo, elimina el pedido completo.')
+                    return redirect('detalle_pedido', pedido_id=pedido.id)
+                    
                 tarea_serie = tarea.amortiguador.nroSerieamortiguador
                 tarea.delete()
+                
+                # Si se borra una tarea, recalculamos el estado del pedido 
+                # (Ej: si borrás la única pendiente y la otra ya estaba 'no revisada', el pedido podría cambiar)
+                sincronizar_estado_pedido(pedido)
+                
                 messages.warning(request, f'Tarea del amortiguador {tarea_serie} eliminada correctamente.')
             except Tarea.DoesNotExist:
                 messages.error(request, 'No se encontró la tarea a eliminar.')
             
+            return redirect('detalle_pedido', pedido_id=pedido.id)
+        elif accion == 'editar_fecha_limite_pedido':
+            nueva_fecha_raw = request.POST.get('nueva_fecha_limite')
+            nueva_fecha, error = _validar_fecha_limite_pedido(nueva_fecha_raw, pedido)
+            
+            if error:
+                messages.error(request, error)
+            else:
+                pedido.fechaSalidaEstimada = nueva_fecha
+                pedido.fecha_ultimo_cambio = timezone.now()
+                pedido.save(update_fields=['fechaSalidaEstimada', 'fecha_ultimo_cambio'])
+                
+                # Opcional: actualizamos también las tareas activas para que no queden desfasadas
+                tareas.exclude(estado='terminada').update(fechaLimite=nueva_fecha)
+                
+                messages.success(request, 'Fecha límite del pedido actualizada correctamente.')
             return redirect('detalle_pedido', pedido_id=pedido.id)
         elif accion == 'terminar_revision_pedido':
 
@@ -1231,19 +1328,71 @@ def detalle_pedido(request, pedido_id):
             return redirect('detalle_pedido', pedido_id=pedido.id)
         elif accion == 'crear_tarea':
             return redirect('create_tarea', pedido_id=pedido.id)
+        elif accion == 'editar_tarea_asignacion':
+            tarea_id = request.POST.get('tarea_id')
+            nuevo_operario_id = request.POST.get('operario')
+            nueva_prioridad = request.POST.get('prioridad')
+            
+            try:
+                tarea = Tarea.objects.get(id=tarea_id, pedido=pedido)
+                if tarea.estado != 'pendiente':
+                    messages.error(request, 'Solo puedes editar tareas que estén en estado pendiente.')
+                else:
+                    nuevo_operario = get_object_or_404(Operario, id=nuevo_operario_id)
+                    tarea.operario = nuevo_operario
+                    tarea.prioridad = nueva_prioridad
+                    tarea.save(update_fields=['operario', 'prioridad'])
+                    messages.success(request, f'Tarea #{tarea.id} actualizada correctamente.')
+            except Tarea.DoesNotExist:
+                messages.error(request, 'No se encontró la tarea a editar.')
+                
+            return redirect('detalle_pedido', pedido_id=pedido.id)
 
         elif accion == 'finalizar_creacion_pedido':
 
-            pedido.estado = 'en curso' 
+            pedido.estado = 'asignado'
             pedido.save()
             messages.success(request, "Pedido confirmado y tareas asignadas a los operarios.")
             return redirect('home')
 
+        elif accion == 'aprobar_sugerencia_rapida':
+            tarea_id = request.POST.get('tarea_id')
+            try:
+                tarea = Tarea.objects.get(id=tarea_id, pedido=pedido)
+                # Obtenemos la observación asociada
+                observacion = Observacion.objects.filter(tarea=tarea).first()
+                
+                if observacion:
+                    sugerencia = (observacion.sugerencia_tecnica or '').strip().lower()
+                    
+                    if sugerencia == 'reparacion':
+                        tarea.estado = 'por reparar'
+                    elif sugerencia == 'control':
+                        tarea.estado = 'terminada' 
+                        tarea.materialtarea_set.all().delete() 
+                    
+                    tarea.tipoTarea = sugerencia
+                    tarea.fecha_ultimo_cambio = timezone.now()
+                    tarea.save(update_fields=['estado', 'tipoTarea', 'fecha_ultimo_cambio'])
+                    sincronizar_estado_pedido(pedido)
+                    
+                    messages.success(request, f'Sugerencia técnica aprobada para el amortiguador {tarea.amortiguador.nroSerieamortiguador}.')
+                else:
+                    messages.error(request, 'No se puede aprobar porque el operario aún no generó el diagnóstico.')
+            except Tarea.DoesNotExist:
+                messages.error(request, 'No se encontró la tarea seleccionada.')
+                
+            return redirect('detalle_pedido', pedido_id=pedido.id)
+
         elif accion == 'borrar_pedido':
-       
+            # REGLA DE NEGOCIO: Permitir borrar si está retirado o recién "asignado"
+            if pedido.estado not in ('retirado', 'asignado'):
+                messages.error(request, 'Solo puedes eliminar un pedido cuando está retirado o recién asignado (sin iniciar).')
+                return redirect('detalle_pedido', pedido_id=pedido.id)
+
             pedido.delete()
-            messages.warning(request, "Se canceló la creación del pedido y se eliminaron los datos asociados.")
-            return redirect('home')        
+            messages.warning(request, "Se eliminó el pedido y sus tareas asociadas.")
+            return redirect('home')    
         elif accion == 'aprobar_presupuesto':
             if pedido.estado in ('revisado', 'presupuestado'):
    
@@ -1253,6 +1402,7 @@ def detalle_pedido(request, pedido_id):
                 if tareas.filter(tipoTarea='reparacion').exists():
                     pedido.estado = 'aprobado'
 
+                    pedido.fecha_ultimo_cambio = timezone.now()
                     pedido.fechaSalidaEstimada = timezone.now() + datetime.timedelta(days=7) 
                     messages.success(request, f'Presupuesto de ${total} aprobado. Las tareas están habilitadas para que los operarios reserven el stock y comiencen.')
                 else:
@@ -1283,6 +1433,7 @@ def detalle_pedido(request, pedido_id):
                 
            
                 pedido.estado = 'terminado'
+                pedido.fecha_ultimo_cambio = timezone.now()
                 pedido.cancelado = True
                 pedido.save()
                 
@@ -1299,7 +1450,8 @@ def detalle_pedido(request, pedido_id):
 
             tareas.exclude(estado='terminada').update(fechaLimite=fecha_limite)
             pedido.fechaSalidaEstimada = fecha_limite
-            pedido.save(update_fields=['fechaSalidaEstimada'])
+            pedido.fecha_ultimo_cambio = timezone.now()
+            pedido.save(update_fields=['fechaSalidaEstimada', 'fecha_ultimo_cambio'])
             messages.success(request, 'Fecha limite asignada correctamente al pedido y sus tareas activas.')
             return redirect('detalle_pedido', pedido_id=pedido.id)
         elif accion == 'actualizar_plan':
@@ -1315,11 +1467,12 @@ def detalle_pedido(request, pedido_id):
 
             tareas.exclude(estado='terminada').update(fechaLimite=fecha_limite)
             pedido.fechaSalidaEstimada = fecha_limite
-            pedido.save(update_fields=['fechaSalidaEstimada'])
+            pedido.fecha_ultimo_cambio = timezone.now()
+            pedido.save(update_fields=['fechaSalidaEstimada', 'fecha_ultimo_cambio'])
             messages.success(request, 'Plan actualizado. Puedes editar materiales desde cada tarea de reparacion.')
             return redirect('detalle_pedido', pedido_id=pedido.id)
         elif accion == 'emitir_comprobante':
-            if pedido.estado not in ('terminado', 'retirado', 'revisado'):
+            if pedido.estado not in ('terminado', 'notificado', 'retirado', 'revisado'):
                 messages.error(request, 'El comprobante solo se puede emitir para pedidos terminados.')
                 return redirect('detalle_pedido', pedido_id=pedido.id)
 
@@ -1339,7 +1492,7 @@ def detalle_pedido(request, pedido_id):
             response['Content-Disposition'] = f'attachment; filename="comprobante_pedido_{pedido.id}.pdf"'
             return response
         elif accion == 'enviar_comprobante':
-            if pedido.estado not in ('terminado', 'retirado', 'revisado'):
+            if pedido.estado not in ('terminado', 'notificado', 'retirado', 'revisado'):
                 messages.error(request, 'El comprobante solo se puede enviar para pedidos terminados.')
                 return redirect('detalle_pedido', pedido_id=pedido.id)
 
@@ -1347,51 +1500,63 @@ def detalle_pedido(request, pedido_id):
             if not destino:
                 messages.error(request, 'El cliente no tiene correo cargado.')
                 return redirect('detalle_pedido', pedido_id=pedido.id)
+            
 
             try:
-   
+                # 1. Obtener o generar el PDF
                 try:
                     comprobante = Comprobante.objects.get(pedido=pedido)
-          
                     pdf_bytes = comprobante.contenido.encode('latin-1', errors='replace')
                 except Comprobante.DoesNotExist:
-     
                     pdf_bytes = _generar_comprobante_pdf(pedido, tareas)
                     comprobante = Comprobante.objects.create(pedido=pedido)
                     comprobante.contenido = pdf_bytes.decode('latin-1', errors='replace')
                     comprobante.save()
-                
+                    
+                # 2. Preparar el correo
                 mail = EmailMessage(
                     subject=f'Comprobante pedido #{pedido.id}',
                     body=(
                         f'Hola {pedido.cliente.nombre},\n\n'
-                        f'Tu pedido #{pedido.id} se encuentra {pedido.estado}.\n'
+                        f'Tu pedido #{pedido.id} se encuentra {pedido.estado}.\n' # Ojo: acá dirá 'terminado' si no lo cambiaste antes
                         'Adjuntamos el comprobante en PDF.\n\n'
                         'Saludos.'
                     ),
                     to=[destino],
                 )
                 mail.attach(f'comprobante_pedido_{pedido.id}.pdf', pdf_bytes, 'application/pdf')
+                
+                # 3. Enviar el correo
                 mail.send(fail_silently=False)
+                if pedido.estado == 'retirado':
+                    messages.warning(request, f'Comprobante enviado a {destino}, pero el pedido ya fue retirado.')
+                else:
+                # 4. SOLO SI EL ENVÍO FUE EXITOSO, actualizamos el estado
+                    pedido.estado = 'notificado'
+                    pedido.fecha_ultimo_cambio = timezone.now()
+                    # Actualizamos ambos campos a la vez
+                    pedido.save(update_fields=['estado', 'fecha_ultimo_cambio']) 
+
                 if settings.EMAIL_BACKEND == 'django.core.mail.backends.console.EmailBackend':
                     messages.warning(
                         request,
-                        f'Comprobante generado para {destino}, pero el proyecto esta en modo consola (no se envio un mail real).'
+                        f'Comprobante generado para {destino}, pero el proyecto está en modo consola (no se envió un mail real).'
                     )
                 else:
                     messages.success(request, f'Comprobante enviado a {destino}.')
+                    
             except Exception as exc:
                 messages.error(request, f'No se pudo enviar el comprobante: {exc}')
 
             return redirect('detalle_pedido', pedido_id=pedido.id)
         elif accion == 'retirar_pedido':
-            if pedido.estado != 'terminado':
-                messages.error(request, 'Solo los pedidos terminados pueden ser retirados.')
+            if pedido.estado != 'notificado':
+                messages.error(request, 'Solo los pedidos notificados pueden ser retirados.')
                 return redirect('detalle_pedido', pedido_id=pedido.id)
 
             pedido.estado = 'retirado'
             pedido.fechaSalidaReal = timezone.now()
-            
+            pedido.fecha_ultimo_cambio = timezone.now()
             pedido.save()
             messages.success(request, 'Pedido marcado como retirado')
             return redirect('detalle_pedido', pedido_id=pedido.id)
@@ -1406,78 +1571,105 @@ def detalle_pedido(request, pedido_id):
         'desglose_presupuesto': desglose_presupuesto,
         'presupuesto_real': presupuesto_real,
         'control': control,
+        'operarios_disponibles': operarios_disponibles,
         'todastareasrevisadas': todastareasrevisadas,
         'comprobante': pedido.comprobante if hasattr(pedido, 'comprobante') else None,
+        'hoy': timezone.now().date(),
     }
     return render(request, 'detalle_pedido.html', context)
 
 
 def create_tarea(request, pedido_id):
-
     operarios = Operario.objects.filter(role='operario').annotate(
         tareas_pendientes=Count(
             'tarea',
             filter=Q(tarea__estado__in=['por reparar', 'pendiente', 'en reparacion'])
         )
     ).order_by('tareas_pendientes')
+    
     fichas = Fichaamortiguador.objects.all()
     pedido = get_object_or_404(Pedido, id=pedido_id)
     context = { 'operarios': operarios, 'fichas': fichas, 'pedido': pedido }
+    
     if request.method == 'POST':
         accion = request.POST.get('accion')
+        
+        # --- CASO 1: SOLO BUSCAR EL AMORTIGUADOR ---
         if accion == 'buscar':
+            nro_serie_input = request.POST.get('nroSerieamortiguador')
             try:
-                amortiguador = Amortiguador.objects.get(nroSerieamortiguador=request.POST.get('nroSerieamortiguador'))
+                amortiguador = Amortiguador.objects.get(nroSerieamortiguador=nro_serie_input)
                 context['amortiguador'] = amortiguador
             except Amortiguador.DoesNotExist:
                 context['no_amortiguador'] = True
-                context['nroSerieamortiguador'] = request.POST.get('nroSerieamortiguador')
-        elif accion == 'crear_amortiguador_tarea':
-            ficha = get_object_or_404(Fichaamortiguador, id = request.POST.get('ficha_amortiguador'))
-            amortiguador = Amortiguador.objects.create(
-                fichaamortiguador = ficha,
-                nroSerieamortiguador = request.POST.get('nroSerieamortiguador'),
-                tipo = request.POST.get('tipo_amortiguador')
-            )
-            operario = get_object_or_404(Operario,id = request.POST.get('operario'))
-            tarea = Tarea.objects.create(
-                prioridad = request.POST.get('prioridad'),
-                amortiguador = amortiguador,
-                operario = operario,
-                pedido = pedido,
-                estado = 'pendiente'
+                context['nroSerieamortiguador'] = nro_serie_input
                 
-            ) 
-            return redirect('detalle_pedido', pedido_id=pedido.id)
-        elif accion =='crear_tarea':
-            operario = get_object_or_404(Operario,id = request.POST.get('operario'))
-            amortiguador = get_object_or_404(Amortiguador, id = request.POST.get('id_amortiguador'))
+            return render(request, 'create_tarea.html', context)
+            
+        # --- CASO 2: CREAR EL AMORTIGUADOR (PORQUE NO EXISTÍA) Y LUEGO LA TAREA ---
+        elif accion == 'crear_amortiguador_tarea':
+            nro_serie_input = request.POST.get('nroSerieamortiguador')
+            ficha_id = request.POST.get('ficha_amortiguador') # Viene del input hidden del JS
+            
+            ficha_seleccionada = get_object_or_404(Fichaamortiguador, id=ficha_id)
+            
+            amortiguador = Amortiguador.objects.create(
+                nroSerieamortiguador=nro_serie_input,
+                fichaamortiguador=ficha_seleccionada,
+                tipo=request.POST.get('tipo_amortiguador', '') 
+            )
+            
+            operario = get_object_or_404(Operario, id=request.POST.get('operario'))
+            
             tarea = Tarea.objects.create(
-                prioridad = request.POST.get('prioridad'),
-                amortiguador = amortiguador,
-                operario = operario,
-                pedido = pedido,
-                estado = 'pendiente'
+                prioridad=request.POST.get('prioridad'),
+                amortiguador=amortiguador,
+                operario=operario,
+                pedido=pedido,
+                estado='pendiente'
             ) 
+            
+            
+                
+            return redirect('detalle_pedido', pedido_id=pedido.id)
+            
+        # --- CASO 3: EL AMORTIGUADOR YA EXISTÍA Y CREAMOS SOLO LA TAREA ---
+        elif accion == 'crear_tarea':
+            operario = get_object_or_404(Operario, id=request.POST.get('operario'))
+            amortiguador = get_object_or_404(Amortiguador, id=request.POST.get('id_amortiguador'))
+            
+            tarea = Tarea.objects.create(
+                prioridad=request.POST.get('prioridad'),
+                amortiguador=amortiguador,
+                operario=operario,
+                pedido=pedido,
+                estado='pendiente'
+            ) 
+            
+            
+                
             return redirect('detalle_pedido', pedido_id=pedido.id)
 
     return render(request, 'create_tarea.html', context)
-
 
 @login_required
 @role_required(['operario'])
 
 @role_required(['operario'])
 def paneltareas(request):
-
     operario_actual = request.user.operario 
-
-
     estados_activos = ['pendiente', 'por reparar', 'en reparacion']
     
+    # REGLA DE NEGOCIO: 
+    # Traemos las tareas del operario pero EXCLUIMOS las que pertenecen 
+    # a pedidos en estado 'pendiente' (que el encargado aún no confirmó).
+    tareas = Tarea.objects.select_related('pedido', 'amortiguador', 'operario').filter(
+        operario=operario_actual
+    ).exclude(
+        pedido__estado='pendiente'
+    ).order_by('-id')
 
-    tareas = Tarea.objects.filter(operario=operario_actual).order_by('-id')
-
+    # Filtro por búsqueda de texto
     query = request.GET.get('q', '').strip()
     if query:
         tareas = tareas.filter(
@@ -1485,13 +1677,12 @@ def paneltareas(request):
             Q(amortiguador__nroSerieamortiguador__icontains=query)
         )
 
-
+    # Filtro por estado
     estado_filtro = request.GET.get('estado')
     if estado_filtro:
-      
         tareas = tareas.filter(estado=estado_filtro)
     else:
-       
+        # Si no hay filtro, mostramos los estados activos de la bandeja
         tareas = tareas.filter(estado__in=estados_activos)
 
     context = {
@@ -1510,14 +1701,21 @@ def detalle_tarea(request, tarea_id):
     if not _can_access_tarea(request, tarea):
         return HttpResponseForbidden('No tienes permisos para ver esta tarea.')
 
-    context = {'tarea': tarea, 'user_role': _get_request_role(request)}
+    user_role = _get_request_role(request)
+    accion = request.POST.get('accion') if request.method == 'POST' else None
+
+    if request.method == 'POST' and user_role == 'encargado' and accion != 'eliminar_tarea':
+        messages.info(request, 'La vista del encargado es solo de consulta.')
+        return redirect('detalle_pedido', pedido_id=tarea.pedido.id)
+
+    context = {'tarea': tarea, 'user_role': user_role}
     
 
     observacion = Observacion.objects.filter(tarea=tarea).first()
     context['observacion'] = observacion
     
-    materialxamortiguador = MaterialFichaAmortiguador.objects.filter(fichaamortiguador=tarea.amortiguador.fichaamortiguador)
-    materialxtarea = MaterialTarea.objects.filter(tarea=tarea)
+    materialxamortiguador = MaterialFichaAmortiguador.objects.select_related('material').filter(fichaamortiguador=tarea.amortiguador.fichaamortiguador)
+    materialxtarea = MaterialTarea.objects.select_related('material').filter(tarea=tarea)
     
     context['materialxtarea'] = materialxtarea
     context['materialxamortiguador'] = materialxamortiguador
@@ -1525,6 +1723,11 @@ def detalle_tarea(request, tarea_id):
     materiales_sugeribles, total_estimado_materiales = _materiales_para_sugerencia_tarea(tarea)
     context['materiales_sugeribles'] = materiales_sugeribles
     context['total_estimado_materiales'] = total_estimado_materiales
+    materiales_sugeribles_visibles = [item for item in materiales_sugeribles if item['cantidad_sugerida'] > 0]
+    context['materiales_sugeribles_visibles'] = materiales_sugeribles_visibles
+    context['mostrar_materiales_sugeridos'] = bool(
+        observacion and observacion.sugerencia_tecnica == 'reparacion' and materiales_sugeribles_visibles
+    )
  
     tipo_sugerido = observacion.sugerencia_tecnica if observacion else None
     context['tipo_sugerido'] = tipo_sugerido
@@ -1551,9 +1754,19 @@ def detalle_tarea(request, tarea_id):
     context['puede_reservar'] = len(materiales_faltantes) == 0
 
     if request.method == 'POST':
-        accion = request.POST.get('accion')
         if not _can_perform_tarea_action(request, tarea, accion):
             return HttpResponseForbidden('No tienes permisos para realizar esta acción.')
+
+        if accion == 'eliminar_tarea':
+            if tarea.estado != 'pendiente':
+                messages.error(request, 'Solo puedes eliminar tareas en estado pendiente.')
+                return redirect('detalle_pedido', pedido_id=tarea.pedido.id)
+
+            pedido_id = tarea.pedido_id
+            tarea_serie = tarea.amortiguador.nroSerieamortiguador
+            tarea.delete()
+            messages.warning(request, f'Tarea del amortiguador {tarea_serie} eliminada correctamente.')
+            return redirect('detalle_pedido', pedido_id=pedido_id)
 
 
         if accion == 'terminarobservacioncontrol':
@@ -1566,6 +1779,8 @@ def detalle_tarea(request, tarea_id):
                 return redirect('detalle_tarea', tarea_id=tarea.id)
 
             tarea.estado = 'no revisada'
+            tarea.pedido.fecha_ultimo_cambio = timezone.now()
+            tarea.fecha_ultimo_cambio = timezone.now()
             tarea.save(update_fields=['estado'])
             
             # MAGIA: Sincronizamos el pedido
@@ -1597,6 +1812,8 @@ def detalle_tarea(request, tarea_id):
                 tarea.tipoTarea = nuevo_tipo
           
                 tarea.estado = 'por reparar' if nuevo_tipo == 'reparacion' else 'terminada'
+                tarea.fecha_ultimo_cambio = timezone.now()
+                tarea.pedido.fecha_ultimo_cambio = timezone.now()
                 tarea.save(update_fields=['tipoTarea', 'estado'])
 
 
@@ -1619,6 +1836,8 @@ def detalle_tarea(request, tarea_id):
 
             tarea.tipoTarea = nuevo_tipo
             tarea.estado = 'terminada' if nuevo_tipo == 'control' else 'por reparar'
+            tarea.fecha_ultimo_cambio = timezone.now()
+            tarea.pedido.fecha_ultimo_cambio = timezone.now()
             tarea.save(update_fields=['tipoTarea', 'estado'])
             
             
@@ -1688,6 +1907,8 @@ def detalle_tarea(request, tarea_id):
                 Notificacion.objects.filter(tarea=tarea, resolved=False).update(resolved=True)
 
                 tarea.estado = 'en reparacion'
+                tarea.fecha_ultimo_cambio = timezone.now()
+                tarea.fecha_inicio_reparacion = timezone.now()
                 tarea.save(update_fields=['estado'])
                 
       
@@ -1771,6 +1992,7 @@ def detalle_tarea(request, tarea_id):
                     mat.save(update_fields=['stockreservado', 'stockActual'])
 
                 tarea.estado = 'terminada'
+                tarea.fecha_finalizacion = timezone.now()
                 tarea.save(update_fields=['estado'])
                 Notificacion.objects.filter(tarea=tarea, resolved=False).update(resolved=True)
 
@@ -1802,6 +2024,37 @@ def detalle_tarea(request, tarea_id):
                 messages.success(request, 'Todas las tareas finalizaron. El pedido pasó a terminado.')
                 
             return redirect('detalle_tarea', tarea_id=tarea.id)
+
+
+        elif accion == 'devolver_tarea':
+            # Verificamos que sea el encargado
+            if user_role != 'encargado':
+                return HttpResponseForbidden('Solo el encargado puede devolver tareas.')
+                
+            if tarea.estado not in ('no revisada', 'por reparar'):
+                messages.error(request, 'Solo puedes devolver tareas que estén en revisión.')
+                return redirect('detalle_tarea', tarea_id=tarea.id)
+
+            motivo = request.POST.get('motivo_devolucion', '').strip()
+            
+            # Anotamos el motivo directamente en el comentario autogenerado del sistema para mantener el historial
+            if observacion:
+                fecha_str = timezone.now().strftime('%d/%m/%Y %H:%M')
+                nota_encargado = f"\n\n[DEVUELTO POR ENCARGADO - {fecha_str}]\nMotivo: {motivo}"
+                observacion.detalle_autogenerado += nota_encargado
+                observacion.save(update_fields=['detalle_autogenerado'])
+
+            # Reiniciamos la tarea
+            tarea.estado = 'pendiente'
+            tarea.devuelta = True
+            tarea.fecha_ultimo_cambio = timezone.now()
+            tarea.save(update_fields=['estado', 'fecha_ultimo_cambio', 'devuelta'])
+
+            # Sincronizamos el pedido (volverá a 'en curso')
+            sincronizar_estado_pedido(tarea.pedido)
+
+            messages.warning(request, 'La tarea fue devuelta al operario para su corrección.')
+            return redirect('detalle_pedido', pedido_id=tarea.pedido.id)
         elif accion == 'agregarmaterialtarea':
 
             if tarea.estado not in ('terminada', 'por reparar') or tarea.pedido.estado not in ('revisado', 'por reparar'):
@@ -1968,7 +2221,9 @@ def crear_o_editar_observacion(request, tarea_id):
                 'detalle_autogenerado': texto_sistema       
             }
         )
-        
+        tarea.devuelta = False
+        tarea.fecha_ultimo_cambio = timezone.now()
+        tarea.pedido.fecha_ultimo_cambio = timezone.now()
         tarea.save()
         messages.success(request, 'Diagnóstico completo guardado.')
         return redirect('detalle_tarea', tarea_id=tarea.id)
@@ -1990,12 +2245,27 @@ def crear_o_editar_observacion(request, tarea_id):
 @role_required(['encargado'])
 def listapedidos(request):
    
-    Pedido.objects.filter(estado='pendiente').delete()
+    estados_validos = ['asignado', 'en curso', 'revisado', 'terminado', 'notificado', 'aprobado', 'retirado', 'presupuestado']
     
+    pedidos = Pedido.objects.select_related('cliente').annotate(
+        tareas_count=Count('tarea', distinct=True)
+    ).order_by('-id')
+    for pedido in pedidos:
+        sincronizar_estado_pedido(pedido)
 
-    estados_validos = ['en curso', 'revisado', 'terminado', 'aprobado', 'retirado', 'presupuestado']
-    
-    pedidos = Pedido.objects.all().order_by('-id')
+
+    if request.method == 'POST':
+        accion = request.POST.get('accion')
+        if accion == 'borrar_pedido':
+            pedido_id = request.POST.get('pedido_id')
+            pedido = get_object_or_404(Pedido, id=pedido_id)
+            if pedido.estado != 'retirado':
+                messages.error(request, 'Solo puedes eliminar un pedido cuando está retirado.')
+                return redirect('listapedidos')
+
+            pedido.delete()
+            messages.warning(request, f'Pedido #{pedido_id} eliminado correctamente.')
+            return redirect('listapedidos')
 
   
     query = request.GET.get('q', '').strip()
