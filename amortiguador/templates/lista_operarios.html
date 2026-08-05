@@ -1,280 +1,300 @@
 {% extends 'base.html' %}
+
 {% block content %}
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="fw-bold">Gestión de Empleados</h2>
-        <a href="{% url 'crear_operario' %}" class="btn btn-success fw-bold shadow-sm">
-            <i class="bi bi-plus-circle"></i> Nuevo Empleado
-        </a>
-    </div>
-
-    <!-- ESTADÍSTICAS CON GRÁFICOS -->
+<style>
+  .dashboard-shell { padding: 24px 0 36px; }
+  .dashboard-hero {
+    position: relative; overflow: hidden; border: 0; border-radius: 24px;
     
+  }
+  .dashboard-hero::after {
+    content: ''; position: absolute; inset: auto -80px -120px auto; width: 280px; height: 280px;
+    border-radius: 50%; background: rgba(255, 255, 255, 0.08); filter: blur(0);
+  }
+  .dashboard-hero__eyebrow { letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.78rem; opacity: 0.85; }
+  
+  .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; margin-top: 18px; }
+  .metric-card {
+    background: rgba(255, 255, 255, 0.94); border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 18px; padding: 18px 18px 16px; box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08); min-height: 120px;
+  }
+  .metric-card__label { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #64748b; }
+  .metric-card__value { font-size: 2.25rem; line-height: 1; font-weight: 800; color: #0f172a; margin-top: 14px; }
+  
+  .main-card {
+    border: none; box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border-radius: 12px; margin-bottom: 1.5rem; overflow: hidden; background: #fff;
+  }
+  .main-card > .card-header {
+    background-color: transparent; border-bottom: 1px solid rgba(0,0,0,.05);
+    padding: 1.25rem 1.5rem; font-weight: 700;
+  }
+  
+  .clean-table th {
+    background-color: #f8f9fa; color: #6c757d; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.75rem;
+    border-bottom: 2px solid #e9ecef; padding: 1rem;
+  }
+  .clean-table td { padding: 1rem; vertical-align: middle; border-bottom: 1px dashed #e9ecef; }
+  .chart-wrap { position: relative; height: 300px; width: 100%; }
+</style>
 
-    <!-- BÚSQUEDA -->
-    <form class="d-flex mb-4" method="GET">
-        <input class="form-control me-2 shadow-sm" type="search" name="q" placeholder="Buscar por legajo, nombre o apellido..." value="{{ query }}">
-        <button class="btn btn-primary shadow-sm" type="submit">Buscar</button>
+<div class="container dashboard-shell" style="max-width: 1400px;">
+  
+  <div class="dashboard-hero p-4 p-md-5 mb-4">
+    <div class="position-relative d-flex justify-content-between align-items-center" style="z-index: 1;">
+      <div>
+        <div class="dashboard-hero__eyebrow mb-2">Recursos Humanos</div>
+        <h1 class="fw-bold mb-2">Gestión de Empleados</h1>
+      </div>
+      <div>
+        <a href="{% url 'crear_operario' %}" class="btn btn-light text-primary fw-bold px-4 py-2 shadow-sm" style="border-radius: 10px;">
+          <i class="bi bi-person-plus-fill me-2"></i> Nuevo Empleado
+        </a>
+      </div>
+    </div>
+
+    <div class="metric-grid position-relative" style="z-index: 1;">
+      <div class="metric-card">
+        <div class="metric-card__label">Total Operarios</div>
+        <div class="metric-card__value text-primary">{{ operarios_con_tareas|length }}</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-card__label">Tareas Activas (Taller)</div>
+        <div class="metric-card__value text-warning">{{ estadisticas.tareas_activas_mes }}</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-card__label">Terminadas (Últ. 30 días)</div>
+        <div class="metric-card__value text-success">{{ estadisticas.tareas_terminadas_mes }}</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-card__label">Tasa de Resolución</div>
+        <div class="metric-card__value text-info">
+          {% if estadisticas.tareas_terminadas_mes > 0 or estadisticas.tareas_activas_mes > 0 %}
+            {% widthratio estadisticas.tareas_terminadas_mes estadisticas.tareas_terminadas_mes|add:estadisticas.tareas_activas_mes 100 %}%
+          {% else %}
+            0%
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if estadisticas %}
+  <div class="row g-4 mb-5">
+    <div class="col-lg-4">
+      <div class="main-card h-100 mb-0">
+        <div class="card-header"><span class="text-dark fs-6"><i class="bi bi-bar-chart-steps text-primary me-2"></i>Tareas por Operario</span></div>
+        <div class="card-body p-4">
+          <div class="chart-wrap"><canvas id="chartTareasPorOperario"></canvas></div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-lg-4">
+      <div class="main-card h-100 mb-0">
+        <div class="card-header"><span class="text-dark fs-6"><i class="bi bi-clock-history text-warning me-2"></i>Horas Promedio por Reparación</span></div>
+        <div class="card-body p-4">
+          <div class="chart-wrap"><canvas id="chartTiemposPromedio"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="main-card h-100 mb-0">
+        <div class="card-header"><span class="text-dark fs-6"><i class="bi bi-cash-coin text-success me-2"></i>Ingresos Generados ($)</span></div>
+        <div class="card-body p-4">
+          <div class="chart-wrap"><canvas id="chartIngresosPorOperario"></canvas></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="fw-bold mb-0 text-dark"><i class="bi bi-people-fill text-primary me-2"></i>Listado del Personal</h4>
+    <form class="d-flex" method="GET" style="width: 350px;">
+      <div class="input-group shadow-sm">
+        <input class="form-control border-0" type="search" name="q" placeholder="Buscar empleado..." value="{{ query }}">
+        <button class="btn btn-primary px-3" type="submit"><i class="bi bi-search"></i></button>
+      </div>
     </form>
+  </div>
 
-    <!-- TABLA DE OPERARIOS -->
-     <h3 class="fw-bold">Gestión de Operarios</h3>
-    <div class="card shadow-sm border-0 bg-white">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead class="table-dark">
-                    <tr>
-                        <th>Legajo</th>
-                        <th>Nombre</th>
-                        <th>Apellido</th>
-                        <th>Estado</th>
-                        <th class="text-center">Pendientes</th>
-                        <th class="text-center">Por Reparar</th>
-                        <th class="text-center">Total Tareas</th>
-                        <th class="text-center">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in operarios_con_tareas %}
-                    <tr>
-                        <td><span class="badge bg-secondary">{{ item.operario.legajo }}</span></td>
-                        <td><strong>{{ item.operario.nombre }}</strong></td>
-                        <td>{{ item.operario.apellido }}</td>
-                        <td>
-                            <span class="badge {% if item.operario.estado == 'activo' %}bg-success{% else %}bg-danger{% endif %}">
-                                {{ item.operario.estado }}
-                            </span>
-                        </td>
-                        <td class="text-center">
-                            {% if item.tareas_pendientes > 0 %}
-                            <span class="badge bg-warning text-dark">{{ item.tareas_pendientes }}</span>
-                            {% else %}
-                            <span class="text-muted">—</span>
-                            {% endif %}
-                        </td>
-                        <td class="text-center">
-                            {% if item.tareas_por_reparar > 0 %}
-                            <span class="badge bg-info">{{ item.tareas_por_reparar }}</span>
-                            {% else %}
-                            <span class="text-muted">—</span>
-                            {% endif %}
-                        </td>
-                        <td class="text-center">
-                            {% if item.total_tareas > 0 %}
-                            <span class="badge bg-primary">{{ item.total_tareas }}</span>
-                            {% else %}
-                            <span class="text-muted">0</span>
-                            {% endif %}
-                        </td>
-                        <td class="text-center">
-                            <a href="{% url 'detalle_operario' item.operario.id %}" class="btn btn-sm btn-primary me-1" title="Ver detalles">
-                                <i class="bi bi-eye"></i>
-                            </a>
-                            <a href="{% url 'editar_operario' item.operario.id %}" class="btn btn-sm btn-warning" title="Editar">
-                                <i class="bi bi-pencil"></i>
-                            </a>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="8" class="text-center p-4 text-muted">No se encontraron operarios.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+  <div class="main-card">
+    <div class="card-header border-bottom-0"><span class="text-dark"><i class="bi bi-tools text-secondary me-2"></i>Operarios Técnicos</span></div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table clean-table mb-0">
+          <thead>
+            <tr>
+              <th>Legajo</th>
+              <th>Nombre y Apellido</th>
+              <th>Estado</th>
+              <th class="text-center">Pendientes</th>
+              <th class="text-center">Por Reparar</th>
+              <th class="text-center">Total Activas</th>
+              <th class="text-end pe-4">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in operarios_con_tareas %}
+            <tr>
+              <td><span class="badge bg-secondary bg-opacity-10 text-secondary border px-2 py-1">{{ item.operario.legajo }}</span></td>
+              <td><strong class="text-dark">{{ item.operario.nombre }}</strong> {{ item.operario.apellido }}</td>
+              <td>
+                {% if item.operario.estado == 'activo' %}
+                  <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">Activo</span>
+                {% else %}
+                  <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1">{{ item.operario.estado|capfirst }}</span>
+                {% endif %}
+              </td>
+              <td class="text-center">
+                {% if item.tareas_pendientes > 0 %}<span class="badge bg-warning text-dark">{{ item.tareas_pendientes }}</span>{% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+              <td class="text-center">
+                {% if item.tareas_por_reparar > 0 %}<span class="badge bg-info text-dark">{{ item.tareas_por_reparar }}</span>{% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+              <td class="text-center">
+                {% if item.total_tareas > 0 %}<span class="badge bg-primary fs-6">{{ item.total_tareas }}</span>{% else %}<span class="text-muted small">Sin tareas</span>{% endif %}
+              </td>
+              <td class="text-end pe-4">
+                <a href="{% url 'detalle_operario' item.operario.id %}" class="btn btn-sm btn-outline-primary me-1" title="Ver detalles"><i class="bi bi-eye"></i></a>
+                <a href="{% url 'editar_operario' item.operario.id %}" class="btn btn-sm btn-outline-warning" title="Editar"><i class="bi bi-pencil"></i></a>
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7" class="text-center p-4 text-muted">No se encontraron operarios en el sistema.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </div>
-    <h3>Gestion encargado de materiales</h3>
-    <div class="card shadow-sm border-0 bg-white">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead class="table-dark">
-                    <tr>
-                        <th>Legajo</th>
-                        <th>Nombre</th>
-                        <th>Apellido</th>
-                        <th>Estado</th>
-                        <th class="text-center">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for operario in operarios_encargado_materiales %}
-                    <tr>
-                        <td><span class="badge bg-secondary">{{ operario.legajo }}</span></td>
-                        <td><strong>{{ operario.nombre }}</strong></td>
-                        <td>{{ operario.apellido }}</td>
-                        <td>
-                            <span class="badge {% if operario.estado == 'activo' %}bg-success{% else %}bg-danger{% endif %}">
-                                {{ operario.estado }}
-                            </span>
-                        </td>
-                        <td class="text-center">
-                            <a href="{% url 'detalle_operario' operario.id %}" class="btn btn-sm
-                              btn-primary me-1" title="Ver detalles">
-                                  <i class="bi bi-eye"></i>
-                            </a>
-                            <a href="{% url 'editar_operario' operario.id %}" class="btn btn-sm
-                              btn-warning" title="Editar">
-                                  <i class="bi bi-pencil"></i>
-                            </a>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="4" class="text-center p-4 text-muted">No se encontraron encargados de materiales.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+  </div>
+
+  <div class="main-card">
+    <div class="card-header border-bottom-0"><span class="text-dark"><i class="bi bi-box-seam text-secondary me-2"></i>Encargados de Materiales (Stock)</span></div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table clean-table mb-0">
+          <thead>
+            <tr>
+              <th>Legajo</th>
+              <th>Nombre y Apellido</th>
+              <th>Estado</th>
+              <th class="text-end pe-4">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for operario in operarios_encargado_materiales %}
+            <tr>
+              <td><span class="badge bg-secondary bg-opacity-10 text-secondary border px-2 py-1">{{ operario.legajo }}</span></td>
+              <td><strong class="text-dark">{{ operario.nombre }}</strong> {{ operario.apellido }}</td>
+              <td>
+                {% if operario.estado == 'activo' %}
+                  <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">Activo</span>
+                {% else %}
+                  <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1">{{ operario.estado|capfirst }}</span>
+                {% endif %}
+              </td>
+              <td class="text-end pe-4">
+                <a href="{% url 'detalle_operario' operario.id %}" class="btn btn-sm btn-outline-primary me-1" title="Ver detalles"><i class="bi bi-eye"></i></a>
+                <a href="{% url 'editar_operario' operario.id %}" class="btn btn-sm btn-outline-warning" title="Editar"><i class="bi bi-pencil"></i></a>
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="text-center p-4 text-muted">No se encontraron encargados de materiales.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </div>
+  </div>
 
-
-    {% if estadisticas %}
-    <div class="row mb-5 g-4 mt-2">
-        <!-- Gráfico 1: Tareas terminadas vs activas (último mes) -->
-        
-
-        <!-- Gráfico 2: Tareas por operario (último mes) -->
-        <div class="col-lg-6 mb-4">
-            <div class="card shadow-sm border-0">
-                <div class="card-header bg-success text-white fw-bold">
-                    <i class="bi bi-people"></i> Tareas por Operario (Último Mes)
-                </div>
-                <div class="card-body">
-                    <canvas id="chartTareasPorOperario"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <!-- Gráfico 3: Ingresos por operario (último mes) -->
-        <div class="col-lg-6 mb-4">
-            <div class="card shadow-sm border-0">
-                <div class="card-header bg-warning text-dark fw-bold">
-                    <i class="bi bi-cash-coin"></i> Ingresos por Operario (Último Mes)
-                </div>
-                <div class="card-body">
-                    <canvas id="chartIngresosPorOperario"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <!-- Resumen rápido -->
-        <div class="col-lg-6 mb-4">
-            <div class="card shadow-sm border-0 bg-light">
-                <div class="card-body">
-                    <h6 class="fw-bold text-dark mb-3"><i class="bi bi-info-circle"></i> Resumen (Último Mes)</h6>
-                    <div class="row">
-                        <div class="col-6 mb-2">
-                            <small class="text-muted d-block">Tareas Terminadas</small>
-                            <h5 class="text-success fw-bold">{{ estadisticas.tareas_terminadas_mes }}</h5>
-                        </div>
-                        <div class="col-6 mb-2">
-                            <small class="text-muted d-block">Tareas Activas</small>
-                            <h5 class="text-warning fw-bold">{{ estadisticas.tareas_activas_mes }}</h5>
-                        </div>
-                        <div class="col-6">
-                            <small class="text-muted d-block">Total Operarios</small>
-                            <h5 class="text-primary fw-bold">{{ operarios_con_tareas|length }}</h5>
-                        </div>
-                        <div class="col-6">
-                            <small class="text-muted d-block">Tasa Finalización</small>
-                            <h5 class="text-info fw-bold">
-                                {% if estadisticas.tareas_terminadas_mes > 0 or estadisticas.tareas_activas_mes > 0 %}
-                                    {{ estadisticas.tareas_terminadas_mes|add:estadisticas.tareas_activas_mes|default:1 }}%
-                                {% else %}
-                                    0%
-                                {% endif %}
-                            </h5>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    {% endif %}
 </div>
 
-<!-- Chart.js -->
+{{ estadisticas.tareas_por_operario|json_script:"data-tareas" }}
+{{ estadisticas.ingresos_por_operario|json_script:"data-ingresos" }}
+{{ estadisticas.tiempos_por_operario|json_script:"data-tiempos" }}
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-// Datos para los gráficos
-const datosEstadisticas = {
-    tareas_terminadas: {{ estadisticas.tareas_terminadas_mes }},
-    tareas_activas: {{ estadisticas.tareas_activas_mes }},
-    tareas_por_operario: {{ estadisticas.tareas_por_operario|safe }},
-    ingresos_por_operario: {{ estadisticas.ingresos_por_operario|safe }}
-};
+document.addEventListener('DOMContentLoaded', function() {
+  const tareasPorOp = JSON.parse(document.getElementById('data-tareas').textContent);
+  const ingresoPorOp = JSON.parse(document.getElementById('data-ingresos').textContent);
+  const tiemposPorOp = JSON.parse(document.getElementById('data-tiempos').textContent);
 
-// Gráfico 1: Estado de tareas (Donut)
+  Chart.defaults.font.family = "'Inter', sans-serif";
 
-
-// Gráfico 2: Tareas por operario (Bar horizontal)
-const tareasPorOp = datosEstadisticas.tareas_por_operario;
-const ctxOperarios = document.getElementById('chartTareasPorOperario').getContext('2d');
-new Chart(ctxOperarios, {
-    type: 'bar',
-    data: {
+  // Gráfico 1: Tareas por operario (Bar)
+  if(document.getElementById('chartTareasPorOperario')) {
+    new Chart(document.getElementById('chartTareasPorOperario').getContext('2d'), {
+      type: 'bar',
+      data: {
         labels: tareasPorOp.map(o => o.nombre),
         datasets: [
-            {
-                label: 'Terminadas',
-                data: tareasPorOp.map(o => o.terminadas),
-                backgroundColor: '#198754'
-            },
-            {
-                label: 'Activas',
-                data: tareasPorOp.map(o => o.activas),
-                backgroundColor: '#ffc107'
-            }
+          { label: 'Terminadas', data: tareasPorOp.map(o => o.terminadas), backgroundColor: '#10b981', borderRadius: 4 },
+          { label: 'Activas', data: tareasPorOp.map(o => o.activas), backgroundColor: '#f59e0b', borderRadius: 4 }
         ]
-    },
-    options: {
-        indexAxis: 'y',
-        responsive: true,
-        maintainAspectRatio: true,
-        plugins: {
-            legend: {
-                position: 'bottom'
-            }
-        },
-        scales: {
-            x: {
-                stacked: false
-            }
-        }
-    }
-});
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } },
+        scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } }, x: { grid: { display: false } } }
+      }
+    });
+  }
 
-// Gráfico 3: Ingresos por operario (Bar)
-const ingresoPorOp = datosEstadisticas.ingresos_por_operario;
-const ctxIngresos = document.getElementById('chartIngresosPorOperario').getContext('2d');
-new Chart(ctxIngresos, {
-    type: 'bar',
-    data: {
+  // Gráfico 2: Tiempos Promedio de Reparación (Bar)
+  if(document.getElementById('chartTiemposPromedio')) {
+    new Chart(document.getElementById('chartTiemposPromedio').getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: tiemposPorOp.map(o => o.nombre),
+        datasets: [{
+          label: 'Minutos Promedio',
+          data: tiemposPorOp.map(o => o.promedio_minutos), // Cambiado a promedio_minutos
+          backgroundColor: 'rgba(245, 158, 11, 0.85)',
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { 
+          legend: { display: false }, 
+          tooltip: { callbacks: { label: (ctx) => `${ctx.parsed.y} min` } } // Ahora dice min
+        },
+        scales: { 
+          y: { 
+            beginAtZero: true, 
+            title: { display: true, text: 'Minutos' } // Cambiado el eje Y a Minutos
+          }, 
+          x: { grid: { display: false } } 
+        }
+      }
+    });
+  }
+
+  // Gráfico 3: Ingresos por operario (Bar)
+  if(document.getElementById('chartIngresosPorOperario')) {
+    new Chart(document.getElementById('chartIngresosPorOperario').getContext('2d'), {
+      type: 'bar',
+      data: {
         labels: ingresoPorOp.map(o => o.nombre),
         datasets: [{
-            label: 'Ingresos ($)',
-            data: ingresoPorOp.map(o => o.ingresos),
-            backgroundColor: '#0d6efd',
-            borderColor: '#0a58ca',
-            borderWidth: 1
+          label: 'Ingresos ($)',
+          data: ingresoPorOp.map(o => o.ingresos),
+          backgroundColor: 'rgba(59, 130, 246, 0.85)',
+          borderRadius: 6
         }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: true,
-        plugins: {
-            legend: {
-                position: 'bottom'
-            }
-        },
-        scales: {
-            y: {
-                beginAtZero: true
-            }
-        }
-    }
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => `$${ctx.parsed.y.toLocaleString()}` } } },
+        scales: { y: { beginAtZero: true }, x: { grid: { display: false } } }
+      }
+    });
+  }
 });
 </script>
 {% endblock %}

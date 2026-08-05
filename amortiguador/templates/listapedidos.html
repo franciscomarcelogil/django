@@ -1,23 +1,38 @@
 {% extends 'base.html' %}
+
 {% block content %}
-<div class="container dashboard-shell">
+<style>
+  .modal-header {
+    background-color: #ffffff !important;
+    border-bottom: 1px solid #dee2e6 !important;
+  }
+  .modal-title {
+    color: #212529 !important;
+    font-weight: 700 !important;
+  }
+  .btn-close {
+    filter: none !important; /* Quita el filtro blanco de la X para que sea negra */
+  }
+</style>
+
+<div class="container dashboard-shell mt-4 mb-5">
   <div class="d-flex justify-content-between align-items-center mb-4">
     <div class="position-relative" style="z-index: 1;">
-      <h1 class="fw-bold ">Gestión de pedidos</h1>
+      <h1 class="fw-bold">Gestión de pedidos</h1>
     </div>
     <div class="mb-2 position-relative" style="z-index: 1;">
       <a href="{% url 'createpedido' %}" class="btn btn-success">+ Nuevo Pedido</a>
     </div>
   </div>
 
-  <form method="GET" class="toolbar-modern mb-4">
+  <form method="GET" class="toolbar-modern mb-4 p-3 bg-white rounded shadow-sm border">
     <div class="row g-3 align-items-end">
-      <div class="col-md-5">
-        <label class="form-label">Buscar</label>
+      <div class="col-md-4">
+        <label class="form-label fw-bold">Buscar</label>
         <input type="text" name="q" class="form-control" placeholder="ID o DNI" value="{{ query|default:'' }}">
       </div>
-      <div class="col-md-4">
-        <label class="form-label">Estado</label>
+      <div class="col-md-3">
+        <label class="form-label fw-bold">Estado</label>
         <select name="estado" class="form-select">
           <option value="">Todos los estados</option>
           {% for estado in estados_disponibles %}
@@ -25,141 +40,146 @@
           {% endfor %}
         </select>
       </div>
-      <div class="col-md-3 d-flex gap-2">
+      
+      <div class="col-md-3">
+        <label class="form-label fw-bold text-primary"><i class="bi bi-sort-down me-1"></i>Ordenar por</label>
+        <select id="select-ordenar" class="form-select border-primary-subtle">
+          <option value="ingreso-desc">Ingreso (Más recientes)</option>
+          <option value="ingreso-asc">Ingreso (Más antiguos)</option>
+          <option value="modificacion-desc">Última Modif. (Más recientes)</option>
+          <option value="modificacion-asc">Última Modif. (Más antiguos)</option>
+        </select>
+      </div>
+
+      <div class="col-md-2 d-flex gap-2">
         <button type="submit" class="btn btn-primary flex-grow-1">Filtrar</button>
         <a href="{% url 'listapedidos' %}" class="btn btn-outline-secondary">Limpiar</a>
       </div>
     </div>
   </form>
 
-  <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
+  <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4" id="contenedor-pedidos">
     {% for pedido in pedidos %}
-    <div class="col">
-      <article class="card pedido-card">
-  <!-- CABECERA -->
-  <div class="card-header d-flex justify-content-between align-items-start gap-2">
-    <div>
-      <div class="fw-bold fs-5 text-dark mb-1">Pedido #{{ pedido.id }}</div>
+    <div class="col col-pedido" 
+         data-fecha-ingreso="{{ pedido.fechaingreso|date:'Y-m-d' }} {{ pedido.horaingreso|time:'H:i:s' }}" 
+         data-fecha-modificacion="{{ pedido.fecha_ultimo_cambio|date:'Y-m-d H:i:s' }}">
       
-      <!-- LÓGICA DE FECHAS EN EL MISMO RENGLÓN -->
-      <small class="text-muted d-flex align-items-center gap-2">
-        <span>Ingreso: {{ pedido.fechaingreso|date:"d/m/y" }}</span>
-        
-        {% if pedido.fechaSalidaReal %}
-          <span>&bull;</span>
-          <span class="text-success fw-medium">Retirado: {{ pedido.fechaSalidaReal|date:"d/m/y" }}</span>
-        {% elif pedido.fechaSalidaEstimada %}
-          <span>&bull;</span>
-          <span class="text-primary opacity-75">Est: {{ pedido.fechaSalidaEstimada|date:"d/m/y" }}</span>
-        {% endif %}
-      </small>
-
-    </div>
-    <!-- Estado -->
-    <span class="state-pill state-pill--{{ pedido.estado|slugify }}">
-      {{ pedido.estado|capfirst }}
-    </span>
-  </div>
-
-  <!-- CUERPO -->
-  <div class="card-body">
-    
-    <!-- CLIENTE Y DNI EN EL MISMO RENGLÓN -->
-    <div class="d-flex justify-content-between align-items-baseline mb-3">
-      <div class="cliente-nombre mb-0">
-        {{ pedido.cliente.nombre }} {{ pedido.cliente.apellido }}
-      </div>
-      <div class="cliente-dni mb-0">
-        DNI: {{ pedido.cliente.dni }}
-      </div>
-    </div>
-
-    <!-- Contacto con íconos integrados -->
-    <div class="contacto-info">
-      <div class="d-flex align-items-center gap-2">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-          <path d="M.05 3.555A2 2 0 0 1 2 2h12a2 2 0 0 1 1.95 1.555L8 8.414.05 3.555ZM0 4.697v7.104l5.803-3.558L0 4.697ZM6.761 8.83l-6.57 4.027A2 2 0 0 0 2 14h12a2 2 0 0 0 1.808-1.144l-6.57-4.027L8 9.586l-1.239-.757Zm3.436-.586L16 11.801V4.697l-5.803 3.546Z"/>
-        </svg>
-        {{ pedido.cliente.correo }}
-      </div>
-      <div class="d-flex align-items-center gap-2">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-          <path fill-rule="evenodd" d="M1.885.511a1.745 1.745 0 0 1 2.61.163L6.29 2.98c.329.423.445.974.315 1.494l-.547 2.19a.678.678 0 0 0 .178.643l2.457 2.457a.678.678 0 0 0 .644.178l2.189-.547a1.745 1.745 0 0 1 1.494.315l2.306 1.794c.829.645.905 1.87.163 2.611l-1.034 1.034c-.74.74-1.846 1.065-2.877.702a18.634 18.634 0 0 1-7.01-4.42 18.634 18.634 0 0 1-4.42-7.009c-.362-1.03-.037-2.137.703-2.877L1.885.511z"/>
-        </svg>
-        {{ pedido.cliente.telefono }}
-      </div> 
-    </div>
-
-    <!-- Barra de Progreso Visual -->
-    <div class="pedido-progress-container">
-      <div class="pedido-progress-track">
-        <div class="pedido-progress-fill" 
-             style="
-                width: {% if pedido.estado|lower == 'pendiente' %}15%
-                    {% elif pedido.estado|lower == 'asignado' %}22%
-                       {% elif pedido.estado|lower == 'en curso' %}30%
-                       {% elif pedido.estado|lower == 'revisado' %}45%
-                       {% elif pedido.estado|lower == 'presupuestado' %}60%
-                       {% elif pedido.estado|lower == 'aprobado' %}75%
-                       {% elif pedido.estado|lower == 'en reparación' %}85%
-                       {% elif pedido.estado|lower == 'terminado' or pedido.estado|lower == 'retirado' %}100%
-                       {% elif pedido.cancelado %}100%
-                       {% else %}0%{% endif %};
-                background-color: {% if pedido.cancelado %}var(--bs-danger)
-                                  {% elif pedido.estado|lower == 'terminado' or pedido.estado|lower == 'retirado' %}var(--bs-success)
-                                  {% else %}var(--primary){% endif %};
-             ">
+      <article class="card pedido-card h-100 shadow-sm border-0">
+        <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-start gap-2 pt-3 px-3">
+          <div>
+            <div class="fw-bold fs-5 text-dark mb-1">Pedido #{{ pedido.id }}</div>
+            
+            <small class="text-muted d-flex align-items-center gap-2">
+              <span>Ingreso: {{ pedido.fechaingreso|date:"d/m/y" }}</span>
+              
+              {% if pedido.fechaSalidaReal %}
+                <span>&bull;</span>
+                <span class="text-success fw-medium">Retirado: {{ pedido.fechaSalidaReal|date:"d/m/y" }}</span>
+              {% elif pedido.fechaSalidaEstimada %}
+                <span>&bull;</span>
+                <span class="text-primary opacity-75">Est: {{ pedido.fechaSalidaEstimada|date:"d/m/y" }}</span>
+              {% endif %}
+            </small>
+          </div>
+          
+          <span class="state-pill state-pill--{{ pedido.estado|slugify }}">
+            {{ pedido.estado|capfirst }}
+          </span>
         </div>
-      </div>
-      <div class="pedido-progress-text">
-        {% if pedido.cancelado %}
-          Proceso Detenido
-        {% elif pedido.estado|lower == 'asignado' %}
-          Asignado
-        {% elif pedido.estado|lower == 'terminado' or pedido.estado|lower == 'retirado' %}
-          Completado
-        {% else %}
-          En proceso
-        {% endif %}
-      </div>
-    </div>
 
-    <!-- Badges / Resumen económico -->
-    <div class="d-flex flex-wrap gap-2">
-      <span class="badge text-bg-light border border-secondary-subtle text-secondary">
-        Tareas: {{ pedido.tareas_count|default:0 }}
-      </span>
-      {% if pedido.total_estimado %}
-      <span class="badge text-bg-light border border-secondary-subtle text-dark fw-bold">
-        $ {{ pedido.total_estimado|floatformat:2 }}
-      </span>
-      {% endif %}
-      {% if pedido.cancelado %}
-      <span class="badge bg-danger">Cancelado</span>
-      {% endif %}
-    </div>
-  </div>
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-baseline mb-3">
+            <div class="cliente-nombre mb-0 fw-bold text-dark">
+              {{ pedido.cliente.nombre }} {{ pedido.cliente.apellido }}
+            </div>
+            <div class="cliente-dni mb-0 text-muted small">
+              DNI: {{ pedido.cliente.dni }}
+            </div>
+          </div>
 
-  <!-- PIE DE TARJETA (Botones) -->
-  <div class="card-footer d-flex gap-2">
-    <a href="{% url 'detalle_pedido' pedido.id %}" class="btn btn-primary flex-grow-1">Ver detalle</a>
-    
-    {% if pedido.estado == 'retirado' %}
-    <button
-      type="button"
-      class="btn btn-outline-danger bg-white px-3"
-      data-confirm-action="borrar_pedido"
-      data-confirm-url="{% url 'listapedidos' %}"
-      data-confirm-title ="Eliminar pedido"
-      data-confirm-message="Este pedido solo puede eliminarse si está retirado."
-      data-confirm-button="Eliminar"
-      data-confirm-button-class="btn-danger"
-      data-confirm-pedido-id="{{ pedido.id }}">
-      🗑
-    </button>
-    {% endif %}
-  </div>
-</article>
+          <div class="contacto-info text-muted small mb-3">
+            <div class="d-flex align-items-center gap-2 mb-1">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M.05 3.555A2 2 0 0 1 2 2h12a2 2 0 0 1 1.95 1.555L8 8.414.05 3.555ZM0 4.697v7.104l5.803-3.558L0 4.697ZM6.761 8.83l-6.57 4.027A2 2 0 0 0 2 14h12a2 2 0 0 0 1.808-1.144l-6.57-4.027L8 9.586l-1.239-.757Zm3.436-.586L16 11.801V4.697l-5.803 3.546Z"/>
+              </svg>
+              <span class="text-truncate">{{ pedido.cliente.correo|default:"Sin correo" }}</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                <path fill-rule="evenodd" d="M1.885.511a1.745 1.745 0 0 1 2.61.163L6.29 2.98c.329.423.445.974.315 1.494l-.547 2.19a.678.678 0 0 0 .178.643l2.457 2.457a.678.678 0 0 0 .644.178l2.189-.547a1.745 1.745 0 0 1 1.494.315l2.306 1.794c.829.645.905 1.87.163 2.611l-1.034 1.034c-.74.74-1.846 1.065-2.877.702a18.634 18.634 0 0 1-7.01-4.42 18.634 18.634 0 0 1-4.42-7.009c-.362-1.03-.037-2.137.703-2.877L1.885.511z"/>
+              </svg>
+              {{ pedido.cliente.telefono }}
+            </div> 
+          </div>
+
+          <div class="pedido-progress-container mb-3">
+            <div class="pedido-progress-track">
+              <div class="pedido-progress-fill" 
+                   style="
+                      width: {% if pedido.estado|lower == 'pendiente' %}15%
+                          {% elif pedido.estado|lower == 'asignado' %}22%
+                             {% elif pedido.estado|lower == 'en curso' %}30%
+                             {% elif pedido.estado|lower == 'revisado' %}45%
+                             {% elif pedido.estado|lower == 'presupuestado' %}60%
+                             {% elif pedido.estado|lower == 'aprobado' %}75%
+                             {% elif pedido.estado|lower == 'en reparación' %}85%
+                             {% elif pedido.estado|lower == 'terminado' or pedido.estado|lower == 'retirado' %}100%
+                             {% elif pedido.cancelado %}100%
+                             {% else %}0%{% endif %};
+                      background-color: {% if pedido.cancelado %}var(--bs-danger)
+                                        {% elif pedido.estado|lower == 'terminado' or pedido.estado|lower == 'retirado' %}var(--bs-success)
+                                        {% else %}var(--primary){% endif %};
+                   ">
+              </div>
+            </div>
+            <div class="pedido-progress-text small text-muted mt-1">
+              {% if pedido.cancelado %}
+                Proceso Detenido
+              {% elif pedido.estado|lower == 'asignado' %}
+                Asignado
+              {% elif pedido.estado|lower == 'terminado' or pedido.estado|lower == 'retirado' %}
+                Completado
+              {% else %}
+                En proceso
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="d-flex flex-wrap gap-2">
+            <span class="badge text-bg-light border border-secondary-subtle text-secondary">
+              Tareas: {{ pedido.tareas_count|default:0 }}
+            </span>
+            {% if pedido.total_estimado %}
+            <span class="badge text-bg-light border border-secondary-subtle text-dark fw-bold">
+              $ {{ pedido.total_estimado|floatformat:2 }}
+            </span>
+            {% endif %}
+            {% if pedido.cancelado %}
+            <span class="badge bg-danger">Cancelado</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="card-footer bg-light border-top p-2 d-flex gap-2">
+          <a href="{% url 'detalle_pedido' pedido.id %}" class="btn btn-primary flex-grow-1 btn-sm">Ver detalle</a>
+          
+          {% if pedido.estado == 'retirado' %}
+          <button
+            type="button"
+            class="btn btn-outline-danger bg-white px-3 btn-sm"
+            data-confirm-action="borrar_pedido"
+            data-confirm-url="{% url 'listapedidos' %}"
+            data-confirm-title="Eliminar pedido"
+            data-confirm-message="Este pedido solo puede eliminarse si está retirado."
+            data-confirm-button="Eliminar"
+            data-confirm-button-class="btn-danger"
+            data-confirm-pedido-id="{{ pedido.id }}">
+            🗑
+          </button>
+          {% endif %}
+        </div>
+      </article>
+
     </div>
     {% empty %}
     <div class="col-12">
@@ -170,4 +190,42 @@
     {% endfor %}
   </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const selectOrden = document.getElementById('select-ordenar');
+  const contenedor = document.getElementById('contenedor-pedidos');
+
+  if (!selectOrden || !contenedor) return;
+
+  selectOrden.addEventListener('change', function() {
+    const items = Array.from(contenedor.querySelectorAll('.col-pedido'));
+    const valor = this.value;
+
+    items.sort((a, b) => {
+      let dateA, dateB;
+
+      if (valor.startsWith('ingreso')) {
+        dateA = new Date(a.getAttribute('data-fecha-ingreso'));
+        dateB = new Date(b.getAttribute('data-fecha-ingreso'));
+      } else if (valor.startsWith('modificacion')) {
+        dateA = new Date(a.getAttribute('data-fecha-modificacion'));
+        dateB = new Date(b.getAttribute('data-fecha-modificacion'));
+      } else {
+        return 0;
+      }
+
+      // Orden Descendente (Más recientes primero) o Ascendente (Más antiguos)
+      if (valor.endsWith('desc')) {
+        return dateB - dateA;
+      } else {
+        return dateA - dateB;
+      }
+    });
+
+    // Reordenar los elementos DOM dinámicamente
+    items.forEach(item => contenedor.appendChild(item));
+  });
+});
+</script>
 {% endblock %}

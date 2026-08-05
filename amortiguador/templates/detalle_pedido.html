@@ -1,499 +1,569 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="container mt-4 mb-5">
+<style>
+  .modal-header {
+    background-color: #ffffff !important;
+    border-bottom: 1px solid #dee2e6 !important;
+  }
+  .modal-title {
+    color: #212529 !important;
+    font-weight: 700 !important;
+  }
+  .btn-close {
+    filter: none !important;
+  }
+  .sidebar-card, .main-card {
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+  }
+  .sidebar-card .card-header, .main-card > .card-header {
+    background-color: transparent;
+    border-bottom: 1px solid rgba(0,0,0,.05);
+    padding: 1.25rem 1.5rem;
+    font-weight: 700;
+  }
   
-  <div class="row g-4 mb-4">
+  /* ESTILOS NUEVOS PARA PRESUPUESTOS (Estilo Recibo Digital) */
+  .receipt-table th {
+    background-color: #f8f9fa;
+    color: #6c757d;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 0.75rem;
+    border-bottom: 2px solid #e9ecef;
+    padding: 1rem 1.5rem;
+  }
+  .receipt-table td {
+    vertical-align: middle;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px dashed #e9ecef;
+  }
+  .receipt-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+  .summary-box {
+    background-color: #f8f9fa;
+    border-top: 1px solid #e9ecef;
+    padding: 1.5rem;
+  }
+  .summary-box.success-theme {
+    background-color: #f0fdf4; /* Verde muy clarito */
+    border-top: 1px solid #d1fae5;
+  }
+</style>
+
+<div class="container-fluid mt-4 mb-5" style="max-width: 1400px;">
+  
+  <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
+    <div>
+      <div class="text-uppercase fw-bold text-muted small mb-1" style="letter-spacing: 1px;">Gestión de Taller</div>
+      <h2 class="fw-bold mb-0 text-dark">Detalle del Pedido #{{ pedido.id }}</h2>
+    </div>
+    <div class="d-flex align-items-center gap-3">
+      {% if mensaje_exito %}
+        <span class="text-success fw-bold bg-success-subtle px-3 py-2 rounded"><i class="bi bi-check-circle me-1"></i>{{ mensaje_exito }}</span>
+      {% endif %}
+      <a href="{% url 'home' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i> Volver al Inicio
+      </a>
+    </div>
+  </div>
+
+  <div class="row g-4">
     
-    <div class="col-lg-7">
-      <div class="card shadow-sm border-0 h-100">
-        <div class="card-header bg-transparent border-bottom d-flex justify-content-between align-items-center pt-3 pb-3 px-4">
-          <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-box-seam text-primary me-2"></i>Pedido #{{ pedido.id }}</h5>
-          <span class="state-pill state-pill--{{ pedido.estado|slugify }} px-3 py-1 fs-6 shadow-sm">
-            {{ pedido.estado|capfirst }}
-          </span>
+    <div class="col-lg-4 col-xl-3 d-flex flex-column">
+      
+      <div class="card main-card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span class="text-dark fs-5"><i class="bi bi-box-seam text-primary me-2"></i>Resumen</span>
+          <span class="state-pill state-pill--{{ pedido.estado|slugify }} px-2 py-1" style="font-size: 0.75rem;">{{ pedido.estado|capfirst }}</span>
         </div>
-        
-        <div class="card-body p-4 d-flex flex-column justify-content-between">
-          <div class="row g-3 mb-4">
-            <div class="col-sm-6">
-              <div class="text-uppercase fw-bold text-secondary mb-1" style="font-size: 0.75rem;"><i class="bi bi-calendar-plus me-1"></i>Creación</div>
-              <div class="fw-medium text-dark">{{ pedido.fechaingreso|date:"d/m/Y" }} a las {{ pedido.horaingreso|time:"H:i" }}</div>
-            </div>
-            <div class="col-sm-6 border-start">
-              <div class="text-uppercase fw-bold text-secondary mb-1 ps-2" style="font-size: 0.75rem;"><i class="bi bi-pencil-square me-1"></i>Última Modificación</div>
-              <div class="fw-medium text-dark ps-2">{{ pedido.fecha_ultimo_cambio|date:"d/m/Y - H:i" }} hs</div>
-            </div>
+        <div class="card-body p-4">
+          <div class="mb-3">
+            <div class="text-uppercase fw-bold text-secondary mb-1" style="font-size: 0.7rem;">Creación</div>
+            <div class="fw-medium text-dark">{{ pedido.fechaingreso|date:"d/m/Y" }} - {{ pedido.horaingreso|time:"H:i" }}</div>
+          </div>
+          <div class="mb-4">
+            <div class="text-uppercase fw-bold text-secondary mb-1" style="font-size: 0.7rem;">Última Modificación</div>
+            <div class="fw-medium text-dark">{{ pedido.fecha_ultimo_cambio|date:"d/m/Y - H:i" }}</div>
           </div>
 
-          <div class="mt-auto">
-            {% if pedido.fechaSalidaEstimada %}
-              {% if pedido.fechaSalidaEstimada < hoy and pedido.estado != 'terminado' and pedido.estado != 'retirado' and pedido.estado != 'notificado' %}
-                <div class="alert alert-danger border-danger p-3 mb-0 d-flex align-items-center justify-content-between shadow-sm">
-                  <div>
-                    <i class="bi bi-exclamation-triangle-fill fs-4 me-2"></i>
-                    <strong class="fs-5">¡Pedido Atrasado!</strong>
-                    <div class="small mt-1">La fecha límite era el <strong>{{ pedido.fechaSalidaEstimada|date:'d/m/Y' }}</strong>.</div>
-                  </div>
-                  <button type="button" class="btn btn-danger btn-sm px-3 fw-bold" data-bs-toggle="modal" data-bs-target="#modalEditarFechaLimite">
-                    <i class="bi bi-pencil-fill me-1"></i> Editar
-                  </button>
+          {% if pedido.fechaSalidaEstimada %}
+            {% if pedido.fechaSalidaEstimada < hoy and pedido.estado != 'terminado' and pedido.estado != 'retirado' and pedido.estado != 'notificado' %}
+              <div class="alert alert-danger border-danger p-2 mb-0 shadow-sm rounded-3">
+                <div class="d-flex align-items-center mb-1">
+                  <i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>
+                  <strong class="text-danger small">¡Atrasado!</strong>
                 </div>
-              {% else %}
-                <div class="bg-light border p-3 rounded d-flex align-items-center justify-content-between">
-                  <div>
-                    <div class="text-uppercase fw-bold text-secondary mb-1" style="font-size: 0.75rem;"><i class="bi bi-clock-history me-1"></i>Límite Estimado</div>
-                    <div class="fw-bold fs-5 text-dark">{{ pedido.fechaSalidaEstimada|date:'d/m/Y' }}</div>
-                  </div>
+                <div class="small mb-2">Límite: <strong>{{ pedido.fechaSalidaEstimada|date:'d/m/Y' }}</strong></div>
+                <button type="button" class="btn btn-sm btn-danger w-100 fw-bold" data-bs-toggle="modal" data-bs-target="#modalEditarFechaLimite">Editar Límite</button>
+              </div>
+            {% else %}
+              <div class="bg-light border p-3 rounded-3 mb-2">
+                <div class="text-uppercase fw-bold text-secondary mb-1" style="font-size: 0.7rem;"><i class="bi bi-clock-history me-1"></i>Límite Estimado</div>
+                <div class="d-flex justify-content-between align-items-center">
+                  <div class="fw-bold fs-6 text-dark">{{ pedido.fechaSalidaEstimada|date:'d/m/Y' }}</div>
                   {% if pedido.estado != 'terminado' and pedido.estado != 'retirado' and pedido.estado != 'notificado' %}
-                  <button type="button" class="btn btn-outline-secondary btn-sm px-3" data-bs-toggle="modal" data-bs-target="#modalEditarFechaLimite">
-                    <i class="bi bi-pencil-fill me-1"></i> Editar
-                  </button>
+                    <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" data-bs-toggle="modal" data-bs-target="#modalEditarFechaLimite">Editar</button>
                   {% endif %}
                 </div>
-              {% endif %}
-            {% else %}
-              <div class="bg-light border p-3 rounded d-flex justify-content-between align-items-center text-muted">
-                <span class="small"><i class="bi bi-info-circle me-1"></i>La fecha límite se generará al aprobar el presupuesto.</span>
               </div>
             {% endif %}
-            
-            <div class="d-flex gap-2 mt-3">
-              {% if pedido.fechaSalidaReal %}
-                <span class="badge bg-success px-3 py-2"><i class="bi bi-check-all me-1"></i>Retirado: {{ pedido.fechaSalidaReal|date:"d/m/Y" }}</span>
-              {% endif %}
-              {% if pedido.cancelado %}
-                <span class="badge bg-danger px-3 py-2"><i class="bi bi-x-circle me-1"></i>Cancelado</span>
-              {% endif %}
+          {% else %}
+            <div class="bg-light border p-2 rounded-3 text-muted small text-center mb-2">
+              <i class="bi bi-info-circle me-1"></i>Fecha límite pendiente
             </div>
+          {% endif %}
+
+          <div class="d-flex flex-column gap-2 mt-3">
+            {% if pedido.fechaSalidaReal %}
+              <span class="badge bg-success py-2"><i class="bi bi-check-all me-1"></i>Retirado: {{ pedido.fechaSalidaReal|date:"d/m/Y" }}</span>
+            {% endif %}
+            {% if pedido.cancelado %}
+              <span class="badge bg-danger py-2"><i class="bi bi-x-circle me-1"></i>Cancelado</span>
+            {% endif %}
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="col-lg-5">
-      <div class="card shadow-sm border-0 h-100">
-        <div class="card-header bg-transparent border-bottom d-flex align-items-center pt-3 pb-3 px-4">
-          <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-person-badge text-success me-2"></i>Datos del Cliente</h5>
+      <div class="card main-card">
+        <div class="card-header">
+          <span class="text-dark fs-5"><i class="bi bi-person-badge text-success me-2"></i>Cliente</span>
         </div>
-        
-        <div class="card-body p-4 d-flex flex-column justify-content-center">
-          <div class="text-center mb-4">
-            <div class="bg-secondary bg-opacity-10 text-secondary rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 70px; height: 70px;">
-              <i class="bi bi-person-fill" style="font-size: 2.5rem;"></i>
+        <div class="card-body p-4">
+          <div class="text-center mb-3">
+            <div class="bg-secondary bg-opacity-10 text-secondary rounded-circle d-flex align-items-center justify-content-center mx-auto mb-2" style="width: 50px; height: 50px;">
+              <i class="bi bi-person-fill fs-4"></i>
             </div>
-            <h4 class="fw-bold mb-1">{{ pedido.cliente.nombre }} {{ pedido.cliente.apellido }}</h4>
+            <h5 class="fw-bold mb-1">{{ pedido.cliente.nombre }} {{ pedido.cliente.apellido }}</h5>
             <span class="badge bg-secondary">DNI: {{ pedido.cliente.dni }}</span>
           </div>
-          
-          <ul class="list-group list-group-flush border px-4 border-top border-bottom">
-            <li class="list-group-item d-flex align-items-center bg-transparent px-0 py-3">
-              <i class="bi bi-envelope text-primary fs-5 me-3"></i>
-              <div class="text-truncate">
-                <div class="small text-muted fw-bold text-uppercase" style="font-size: 0.7rem;">Correo Electrónico</div>
-                <div class="fw-medium">{{ pedido.cliente.correo|default:"Sin correo registrado" }}</div>
+          <hr>
+          <div class="d-flex flex-column gap-3 small">
+            <div>
+              <div class="text-muted fw-bold text-uppercase" style="font-size: 0.65rem;">Correo Electrónico</div>
+              <div class="fw-medium text-truncate" title="{{ pedido.cliente.correo }}"><i class="bi bi-envelope me-2 text-primary"></i>{{ pedido.cliente.correo|default:"-" }}</div>
+            </div>
+            <div>
+              <div class="text-muted fw-bold text-uppercase" style="font-size: 0.65rem;">Teléfono</div>
+              <div class="fw-medium d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-telephone me-2 text-success"></i>{{ pedido.cliente.telefono }}</span>
+                <a href="https://wa.me/{{ pedido.cliente.telefono|cut:'+'|cut:' ' }}" target="_blank" class="text-success"><i class="bi bi-whatsapp"></i></a>
               </div>
-            </li>
-            <li class="list-group-item d-flex align-items-center justify-content-between bg-transparent px-0 py-3">
-              <div class="d-flex align-items-center">
-                <i class="bi bi-whatsapp text-success fs-5 me-3"></i>
-                <div>
-                  <div class="small text-muted fw-bold text-uppercase" style="font-size: 0.7rem;">Teléfono</div>
-                  <div class="fw-medium">{{ pedido.cliente.telefono }}</div>
-                </div>
-              </div>
-              <a href="https://wa.me/{{ pedido.cliente.telefono|cut:'+'|cut:' ' }}" target="_blank" class="btn btn-sm btn-success rounded-pill px-3">
-                Contactar
-              </a>
-            </li>
-          </ul>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-  </div>
 
-
-  <div class="mb-5 mt-5">
-    <div class="d-flex justify-content-between align-items-end mb-3 border-bottom pb-2">
-      <div>
-        <h4 class="mb-0 fw-bold"><i class="bi bi-list-task text-primary me-2"></i>Tareas Asociadas</h4>
-        <small class="text-muted">Tarjetas detalladas con la gestión individual de cada amortiguador.</small>
-      </div>
-      
-      <div class="d-flex gap-2">
-        {% if pedido.estado == 'pendiente' %}
-          <form method="post" class="m-0">
-            {% csrf_token %}
-            <input type="hidden" name="accion" value="crear_tarea" />
-            <button type="submit" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Agregar Tarea</button>
-          </form>
-          
-          {% if tareas %}
-          <form method="post" class="m-0">
+      {% if pedido.estado == 'terminado' or pedido.estado == 'retirado' or pedido.estado == 'notificado' or pedido.estado == 'asignado' or pedido.estado == 'pendiente' %}
+      <div class="card main-card mt-auto">
+        <div class="card-header">
+          <span class="text-dark fs-5"><i class="bi bi-lightning-charge text-warning me-2"></i>Acciones</span>
+        </div>
+        <div class="card-body p-3 d-flex flex-column gap-2">
+          {% if pedido.estado == 'terminado' or pedido.estado == 'retirado' or pedido.estado == 'notificado' %}
+            <form method="post" class="m-0">
               {% csrf_token %}
-              <input type="hidden" name="accion" value="finalizar_creacion_pedido">
-              <button type="submit" class="btn btn-success fw-bold"><i class="bi bi-check2-all me-1"></i>Confirmar Asignaciones</button>
-          </form>
-          {% endif %}
-        {% endif %}
-      </div>
-    </div>
-
-    <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
-      {% for tarea in tareas %}
-      <div class="col">
-        <article class="card entity-card h-100 shadow-sm border">
-          
-          <div class="card-header bg-transparent border-bottom d-flex justify-content-between align-items-start gap-2 pt-3 px-3">
-            <div>
-              <div class="fw-bold fs-5 text-dark">Tarea #{{ tarea.id }}</div>
-              <small class="text-muted d-block mt-1">
-                <i class="bi bi-upc-scan me-1"></i>Serie: <strong class="text-dark">{{ tarea.amortiguador.nroSerieamortiguador }}</strong>
-              </small>
-            </div>
-            <span class="state-pill state-pill--{{ tarea.estado|slugify }}">{{ tarea.estado|capfirst }}</span>
-          </div>
-
-          <div class="card-body d-flex flex-column gap-3 p-3">
-            <div class="row g-2 small text-muted bg-light p-2 rounded border">
-              <div class="col-6 border-end">
-                <div class="text-uppercase fw-bold text-secondary" style="font-size: 0.7rem;">Operario</div>
-                <div class="fw-semibold text-dark">{{ tarea.operario.nombre }} {{ tarea.operario.apellido }}</div>
-                <div class="opacity-75">Legajo: {{ tarea.operario.legajo }}</div>
-              </div>
-              <div class="col-6 ps-2">
-                <div class="text-uppercase fw-bold text-secondary" style="font-size: 0.7rem;">Clasificación</div>
-                <div><strong>Tipo:</strong> {{ tarea.tipoTarea|default:'A definir'|capfirst }}</div>
-                <div><strong>Prioridad:</strong> 
-                  {% if tarea.prioridad|lower == 'alta' %}<span class="text-danger fw-bold">🔴 Alta</span>
-                  {% elif tarea.prioridad|lower == 'media' %}<span class="text-warning fw-bold">🟡 Media</span>
-                  {% else %}<span class="text-info fw-bold">🟢 Baja</span>{% endif %}
-                </div>
-              </div>
-            </div>
-
-            <div class="d-flex flex-wrap gap-1">
-              <span class="badge text-bg-light border text-secondary fw-normal"><i class="bi bi-calendar-event me-1"></i>Asignada: {{ tarea.fechaAsignacion|date:"d/m/y" }}</span>
-              {% if tarea.fechaLimite %}<span class="badge text-bg-light border text-danger fw-normal"><i class="bi bi-clock-history me-1"></i>Límite: {{ tarea.fechaLimite|date:"d/m/y" }}</span>{% endif %}
-            </div>
-
-            {% if tarea.observacion and tarea.observacion.detalle_operario %}
-              <div class="p-2 bg-body-tertiary border-start border-3 border-info rounded small">
-                <div class="fw-bold text-dark mb-1" style="font-size: 0.75rem;"><i class="bi bi-chat-left-text me-1"></i>Observación:</div>
-                <div class="text-muted text-break">{{ tarea.observacion.detalle_operario|linebreaksbr }}</div>
-              </div>
-            {% endif %}
-
-            <div>
-              <div class="fw-bold text-dark small mb-1" style="font-size: 0.75rem;"><i class="bi bi-box-seam me-1"></i>Materiales sugeridos:</div>
-              <div class="d-flex flex-wrap gap-1 align-items-center">
-                {% for mt in tarea.materialtarea_set.all %}
-                  <span class="badge text-bg-light border text-dark fw-medium px-2 py-1" style="font-size: 0.78rem;">
-                    {{ mt.material.tipo }} &bull; <strong class="text-primary">{{ mt.stockrecomendado }}</strong>
-                  </span>
-                {% empty %}
-                  <span class="text-muted small italic">Sin materiales requeridos</span>
-                {% endfor %}
-              </div>
-            </div>
-          </div>
-
-          <div class="card-footer bg-transparent border-top p-3 d-flex gap-2 flex-wrap mt-auto">
-            {% if tarea.estado == 'no revisada' and pedido.estado == 'revisado' %}
-              <form method="post" class="flex-grow-1 m-0" style="min-width: 45%;">
-                {% csrf_token %}
-                <input type="hidden" name="accion" value="aprobar_sugerencia_rapida">
-                <input type="hidden" name="tarea_id" value="{{ tarea.id }}">
-                <button type="submit" class="btn btn-success w-100 fw-bold btn-sm">✓ Aprobar sugerencia</button>
-              </form>
-              <a href="{% url 'detalle_tarea' tarea.id %}" class="btn btn-outline-primary btn-sm flex-grow-1">Gestionar</a>
-            {% else %}
-              {% if tarea.estado != 'pendiente' %}
-                <a href="{% url 'detalle_tarea' tarea.id %}" class="btn btn-primary btn-sm flex-grow-1">
-                  {% if pedido.estado == 'aprobado' or pedido.estado == 'terminado' or pedido.estado == 'retirado' %}Ver detalle{% else %}Gestionar tarea{% endif %}
-                </a>
-              {% endif %}
-            {% endif %}
-            
-            {% if tarea.estado == 'pendiente' and pedido.estado != 'aprobado' and pedido.estado != 'terminado' and pedido.estado != 'retirado' and pedido.estado != 'notificado' %}
-              <button type="button" class="btn btn-outline-warning btn-sm" data-bs-toggle="modal" data-bs-target="#modalEditarTarea{{ tarea.id }}"><i class="bi bi-pencil"></i> Editar</button>
-            {% endif %}
-            
-            <a href="{% url 'historial_amortiguador' tarea.id %}" class="btn btn-outline-secondary btn-sm">Historial</a>
-            
-            {% if tarea.estado == 'pendiente' and pedido.estado != 'aprobado' and pedido.estado != 'terminado' and pedido.estado != 'retirado' and pedido.estado != 'notificado' %}
-              <button type="button" class="btn btn-outline-danger btn-sm" data-confirm-action="eliminar_tarea" data-confirm-url="{% url 'detalle_pedido' pedido.id %}" data-confirm-title="Eliminar tarea" data-confirm-message="Esta tarea solo puede eliminarse si sigue pendiente. Se borrarán los materiales asociados." data-confirm-button="Eliminar" data-confirm-button-class="btn-danger" data-confirm-tarea-id="{{ tarea.id }}">
-                <i class="bi bi-trash"></i>
+              <button type="submit" name="accion" value="emitir_comprobante" class="btn btn-outline-primary w-100 btn-sm text-start">
+                <i class="bi bi-file-earmark-pdf me-2"></i> Generar Comprobante
               </button>
+            </form>
+            <form method="post" class="m-0">
+              {% csrf_token %}
+              <button type="submit" name="accion" value="enviar_comprobante" class="btn btn-primary w-100 btn-sm text-start">
+                <i class="bi bi-envelope-paper me-2"></i> Enviar por Email
+              </button>
+            </form>
+            
+            {% if pedido.estado == 'notificado' %}
+              <form method="post" class="m-0 mt-2">
+                {% csrf_token %}
+                <button type="submit" name="accion" value="retirar_pedido" class="btn btn-success w-100 fw-bold shadow-sm">
+                  <i class="bi bi-box-arrow-right me-2"></i> Entregar al Cliente
+                </button>
+              </form>
+            {% endif %}
+          {% endif %}
+
+          {% if pedido.estado == 'retirado' or pedido.estado == 'asignado' or pedido.estado == 'pendiente' %}
+            <button type="button" class="btn btn-outline-danger w-100 btn-sm text-start {% if pedido.estado != 'pendiente' and pedido.estado != 'asignado' %}mt-2{% endif %}" data-confirm-action="borrar_pedido" data-confirm-url="{% url 'detalle_pedido' pedido.id %}" data-confirm-title="Eliminar pedido" data-confirm-message="Este pedido solo puede eliminarse si está retirado o recién creado. Se borrarán todas las tareas." data-confirm-button="Eliminar Definitivamente" data-confirm-button-class="btn-danger" data-confirm-pedido-id="{{ pedido.id }}">
+              <i class="bi bi-trash3 me-2"></i> Eliminar Pedido
+            </button>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+
+    <div class="col-lg-8 col-xl-9">
+      
+      <div class="card main-card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span class="text-dark fs-5"><i class="bi bi-list-task text-primary me-2"></i>Tareas Asociadas</span>
+          <div class="d-flex gap-2">
+            {% if pedido.estado == 'pendiente' %}
+              <form method="post" class="m-0">
+                {% csrf_token %}
+                <input type="hidden" name="accion" value="crear_tarea" />
+                <button type="submit" class="btn btn-primary btn-sm fw-bold"><i class="bi bi-plus-lg me-1"></i>Agregar Tarea</button>
+              </form>
+              {% if tareas %}
+              <form method="post" class="m-0">
+                  {% csrf_token %}
+                  <input type="hidden" name="accion" value="finalizar_creacion_pedido">
+                  <button type="submit" class="btn btn-success btn-sm fw-bold"><i class="bi bi-check2-all me-1"></i>Confirmar Asignaciones</button>
+              </form>
+              {% endif %}
             {% endif %}
           </div>
-        </article>
-      </div>
-      {% empty %}
-      <div class="col-12">
-        <div class="alert alert-light border border-dashed text-center py-5">
-          <i class="bi bi-inbox fs-1 text-muted d-block mb-3"></i>
-          <h5 class="text-secondary fw-bold">Sin Tareas</h5>
-          <p class="text-muted mb-0">No hay tareas asociadas a este pedido. Haga clic en "Agregar Tarea" para comenzar.</p>
         </div>
-      </div>
-      {% endfor %}
-    </div>
-  </div>
+        
+        <div class="card-body p-4 bg-light">
+          <div class="row row-cols-1 row-cols-xl-2 g-3">
+            {% for tarea in tareas %}
+            <div class="col">
+              <article class="card entity-card h-100 shadow-sm border-0" style="border-radius: 12px;">
+                <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-start gap-2 pt-3 px-3">
+                  <div>
+                    <div class="fw-bold fs-5 text-dark">Tarea #{{ tarea.id }}</div>
+                    <small class="text-muted d-block mt-1">
+                      <i class="bi bi-upc-scan me-1"></i>Serie: <strong class="text-dark">{{ tarea.amortiguador.nroSerieamortiguador }}</strong>
+                    </small>
+                  </div>
+                  <span class="state-pill state-pill--{{ tarea.estado|slugify }}">{{ tarea.estado|capfirst }}</span>
+                </div>
 
+                <div class="card-body d-flex flex-column gap-3 p-3 bg-white">
+                  <div class="row g-2 small text-muted bg-light p-2 rounded border">
+                    <div class="col-7 border-end">
+                      <div class="text-uppercase fw-bold text-secondary" style="font-size: 0.65rem;">Operario</div>
+                      <div class="fw-semibold text-dark text-truncate">{{ tarea.operario.nombre }} {{ tarea.operario.apellido }}</div>
+                    </div>
+                    <div class="col-5 ps-2">
+                      <div class="text-uppercase fw-bold text-secondary" style="font-size: 0.65rem;">Tipo / Prioridad</div>
+                      <div class="fw-bold text-primary">{{ tarea.tipoTarea|default:'A definir'|capfirst }}</div>
+                      <div>
+                        {% if tarea.prioridad|lower == 'alta' %}<span class="text-danger fw-bold">🔴 Alta</span>
+                        {% elif tarea.prioridad|lower == 'media' %}<span class="text-warning text-dark fw-bold">🟡 Media</span>
+                        {% else %}<span class="text-info text-dark fw-bold">🟢 Baja</span>{% endif %}
+                      </div>
+                    </div>
+                  </div>
 
-  <div class="row g-4 mb-4 mt-5">
-    {% if pedido.estado == 'por reparar' %}
-    <div class="col-lg-6">
-      <div class="card h-100 shadow-sm border-0">
-        <div class="card-header bg-transparent border-bottom d-flex justify-content-between align-items-center pt-3 pb-3 px-4">
-          <h6 class="mb-0 fw-bold text-dark"><i class="bi bi-calendar-check text-primary me-2"></i>Gestión de Fechas</h6>
-        </div>
-        <div class="card-body">
-          <p class="text-muted small mb-3">Asigne una fecha límite estimada para que los operarios finalicen las tareas.</p>
-          <form action="" method="post" class="d-flex align-items-end gap-2">
-            {% csrf_token %}
-            <input type="hidden" name="accion" value="actualizar_plan" />
-            <div class="flex-grow-1">
-              <input type="date" id="fecha_limite" name="fecha_limite" value="{% if pedido.fechaSalidaEstimada %}{{ pedido.fechaSalidaEstimada|date:'Y-m-d' }}{% endif %}" class="form-control" required />
+                  <div class="d-flex flex-wrap gap-1">
+                    <span class="badge text-bg-light border text-secondary fw-normal"><i class="bi bi-calendar-event me-1"></i>Asignada: {{ tarea.fechaAsignacion|date:"d/m/y" }}</span>
+                    {% if tarea.fechaLimite %}<span class="badge text-bg-light border text-danger fw-normal"><i class="bi bi-clock-history me-1"></i>Límite: {{ tarea.fechaLimite|date:"d/m/y" }}</span>{% endif %}
+                  </div>
+
+                  {% if tarea.observacion and tarea.observacion.detalle_operario %}
+                    <div class="p-2 bg-body-tertiary border-start border-3 border-info rounded small">
+                      <div class="fw-bold text-dark mb-1" style="font-size: 0.7rem;"><i class="bi bi-chat-left-text me-1"></i>Observación:</div>
+                      <div class="text-muted text-truncate" title="{{ tarea.observacion.detalle_operario }}">{{ tarea.observacion.detalle_operario }}</div>
+                    </div>
+                  {% endif %}
+
+                  <div class="mt-auto">
+                    <div class="fw-bold text-dark small mb-1" style="font-size: 0.7rem;"><i class="bi bi-box-seam me-1"></i>Materiales sugeridos:</div>
+                    <div class="d-flex flex-wrap gap-1 align-items-center">
+                      {% for mt in tarea.materialtarea_set.all %}
+                        <span class="badge text-bg-light border text-dark fw-medium px-2 py-1" style="font-size: 0.7rem;">
+                          {{ mt.material.tipo }} &bull; <strong class="text-primary">{{ mt.stockrecomendado }}</strong>
+                        </span>
+                      {% empty %}
+                        <span class="text-muted small fst-italic" style="font-size: 0.75rem;">Sin materiales</span>
+                      {% endfor %}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="card-footer bg-light border-top p-2 d-flex gap-1 flex-wrap">
+                  {% if tarea.estado == 'no revisada' and pedido.estado == 'revisado' %}
+                    <button type="button" class="btn btn-outline-danger btn-sm flex-grow-1" data-bs-toggle="modal" data-bs-target="#modalRechazarTarea{{ tarea.id }}">✗ Rechazar</button>
+                    <form method="post" class="flex-grow-1 m-0">
+                      {% csrf_token %}
+                      <input type="hidden" name="accion" value="aprobar_sugerencia_rapida">
+                      <input type="hidden" name="tarea_id" value="{{ tarea.id }}">
+                      <button type="submit" class="btn btn-success w-100 fw-bold btn-sm">✓ Aprobar</button>
+                    </form>
+                    <a href="{% url 'detalle_tarea' tarea.id %}" class="btn btn-outline-primary btn-sm w-100 mt-1">Detalles</a>
+                  {% else %}
+                    {% if tarea.estado != 'pendiente' %}
+                      <a href="{% url 'detalle_tarea' tarea.id %}" class="btn btn-primary btn-sm flex-grow-1">
+                        {% if pedido.estado == 'aprobado' or pedido.estado == 'terminado' or pedido.estado == 'retirado' %}Ver detalle{% else %}Gestionar tarea{% endif %}
+                      </a>
+                    {% endif %}
+                  {% endif %}
+                  
+                  <div class="d-flex gap-1 w-100 mt-1">
+                    {% if tarea.estado == 'pendiente' and pedido.estado != 'aprobado' and pedido.estado != 'terminado' and pedido.estado != 'retirado' and pedido.estado != 'notificado' %}
+                      <button type="button" class="btn btn-outline-warning btn-sm flex-grow-1" data-bs-toggle="modal" data-bs-target="#modalEditarTarea{{ tarea.id }}"><i class="bi bi-pencil"></i> Editar</button>
+                    {% endif %}
+                    <a href="{% url 'historial_amortiguador' tarea.id %}" class="btn btn-outline-secondary btn-sm flex-grow-1">Historial</a>
+                    {% if tarea.estado == 'pendiente' and pedido.estado != 'aprobado' and pedido.estado != 'terminado' and pedido.estado != 'retirado' and pedido.estado != 'notificado' %}
+                      <button type="button" class="btn btn-outline-danger btn-sm" data-confirm-action="eliminar_tarea" data-confirm-url="{% url 'detalle_pedido' pedido.id %}" data-confirm-title="Eliminar tarea" data-confirm-message="Esta tarea solo puede eliminarse si sigue pendiente." data-confirm-button="Eliminar" data-confirm-button-class="btn-danger" data-confirm-tarea-id="{{ tarea.id }}"><i class="bi bi-trash"></i></button>
+                    {% endif %}
+                  </div>
+                </div>
+              </article>
             </div>
-            <button type="submit" class="btn btn-primary px-4">Guardar Plan</button>
-          </form>
-        </div>
-      </div>
-    </div>
-    {% endif %}
-
-    {% if editar_plan %}
-    <div class="col-lg-6">
-      <div class="card h-100 shadow-sm border-warning border border-2">
-        <div class="card-header bg-transparent border-bottom d-flex justify-content-between align-items-center pt-3 pb-3 px-4">
-          <h6 class="mb-0 fw-bold text-dark"><i class="bi bi-tools text-warning me-2"></i>Edición Manual del Plan</h6>
-        </div>
-        <div class="card-body">
-          {% if tareas_reparacion_editables %}
-            <p class="text-muted small mb-3">Para ajustar materiales máximos por tarea, ingrese a cada una:</p>
-            <div class="d-flex flex-wrap gap-2 mb-4">
-              {% for tarea_editable in tareas_reparacion_editables %}
-                <a href="{% url 'detalle_tarea' tarea_editable.id %}" class="btn btn-outline-secondary btn-sm">Editar Tarea #{{ tarea_editable.id }}</a>
-              {% endfor %}
+            {% empty %}
+            <div class="col-12">
+              <div class="alert alert-light border border-dashed text-center py-5 rounded-4 w-100 mb-0 bg-white">
+                <i class="bi bi-inbox fs-1 text-muted d-block mb-3"></i>
+                <h6 class="text-secondary fw-bold">Sin Tareas</h6>
+                <p class="text-muted small mb-0">No hay tareas asociadas a este pedido.</p>
+              </div>
             </div>
-          {% else %}
-            <div class="alert alert-warning py-2 small">No hay tareas en estado "Por Reparar" para modificar.</div>
-          {% endif %}
-          
-          <div class="d-flex gap-2 mt-auto">
-            <form method="post" class="m-0 flex-grow-1">
-              {% csrf_token %}
-              <button type="submit" name="accion" value="terminar_revision_pedido" class="btn btn-success w-100">Finalizar Edición</button>
-            </form>
-            <a href="?" class="btn btn-outline-secondary">Cancelar</a>
+            {% endfor %}
           </div>
         </div>
       </div>
-    </div>
-    {% endif %}
-  </div>
 
-  {% if pedido.estado == 'presupuestado' and not control and todastareasrevisadas %}
-    <div class="card shadow-sm border-0 overflow-hidden mb-4">
-      <div class="card-header bg-transparent border-bottom d-flex justify-content-between align-items-center pt-3 pb-3 px-4">
-        <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-calculator text-primary me-2"></i>Presupuesto Estimado</h5>
-        <span class="fs-4 fw-bold text-primary">${{ presupuesto_estimado|floatformat:2 }}</span>
-      </div>
-      <div class="card-body p-0">
-        <div class="table-responsive">
-          <table class="table table-presupuesto mb-0">
-            <thead class="bg-light">
-              <tr>
-                <th class="p-3 text-uppercase text-muted" style="font-size:0.8rem;">Concepto / Material</th>
-                <th class="p-3 text-uppercase text-muted text-center" style="font-size:0.8rem;">Cantidad</th>
-                <th class="p-3 text-uppercase text-muted text-end" style="font-size:0.8rem;">Costo Unit.</th>
-                <th class="p-3 text-uppercase text-muted text-end" style="font-size:0.8rem;">Subtotal</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% if desglose_presupuesto %}
-                <tr>
-                  <td class="p-3 fw-bold border-bottom">Revisión de tareas (Base)</td>
-                  <td class="p-3 text-center border-bottom">{{ desglose_presupuesto.num_tareas }}</td>
-                  <td class="p-3 text-end border-bottom">${{ desglose_presupuesto.precio_revision_unitario|floatformat:2 }}</td>
-                  <td class="p-3 text-end fw-bold border-bottom">${{ desglose_presupuesto.precio_revision_total|floatformat:2 }}</td>
-                </tr>
-                {% if desglose_presupuesto.num_tareas_reparacion > 0 %}
-                <tr>
-                  <td class="p-3 fw-bold border-bottom"><i class="bi bi-wrench-adjustable me-2"></i>Mano de obra (Reparación)</td>
-                  <td class="p-3 text-center border-bottom">{{ desglose_presupuesto.num_tareas_reparacion }}</td>
-                  <td class="p-3 text-end border-bottom">${{ desglose_presupuesto.precio_mano_obra_unitario|floatformat:2 }}</td>
-                  <td class="p-3 text-end fw-bold border-bottom">${{ desglose_presupuesto.total_mano_obra_reparacion|floatformat:2 }}</td>
-                </tr>
-                {% endif %}
-                {% for material in desglose_presupuesto.desglose_materiales %}
-                <tr>
-                  <td class="p-3 border-bottom"><i class="bi bi-box-seam text-muted me-2"></i>{{ material.material }}</td>
-                  <td class="p-3 text-center border-bottom">{{ material.cantidad }}</td>
-                  <td class="p-3 text-end border-bottom">${{ material.precio_unitario|floatformat:2 }}</td>
-                  <td class="p-3 text-end text-primary fw-medium border-bottom">${{ material.subtotal|floatformat:2 }}</td>
-                </tr>
-                {% endfor %}
-                
-                
-                
-                <tr class="bg-light">
-                  <td colspan="3" class="p-3 text-end text-muted fw-bold border-bottom">Subtotal Materiales:</td>
-                  <td class="p-3 text-end fw-bold border-bottom">${{ desglose_presupuesto.total_materiales|floatformat:2 }}</td>
-                </tr>
-                <tr class="bg-primary bg-opacity-10">
-                  <td colspan="3" class="p-3 text-end fw-bold text-dark fs-5 border-0">TOTAL ESTIMADO:</td>
-                  <td class="p-3 text-end fw-bold text-primary fs-5 border-0">${{ desglose_presupuesto.total_general|floatformat:2 }}</td>
-                </tr>
+      {% if pedido.estado == 'por reparar' or editar_plan %}
+      <div class="row g-3 mb-4">
+        {% if pedido.estado == 'por reparar' %}
+        <div class="col-md-6">
+          <div class="card main-card h-100 mb-0">
+            <div class="card-header"><span class="text-dark fs-6"><i class="bi bi-calendar-check text-primary me-2"></i>Gestión de Fechas</span></div>
+            <div class="card-body">
+              <form action="" method="post" class="d-flex flex-column gap-2 h-100 justify-content-between">
+                {% csrf_token %}
+                <input type="hidden" name="accion" value="actualizar_plan" />
+                <input type="date" id="fecha_limite" name="fecha_limite" value="{% if pedido.fechaSalidaEstimada %}{{ pedido.fechaSalidaEstimada|date:'Y-m-d' }}{% endif %}" class="form-control form-control-sm" required />
+                <button type="submit" class="btn btn-primary btn-sm w-100 mt-2">Guardar Plan</button>
+              </form>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+        {% if editar_plan %}
+        <div class="col-md-6">
+          <div class="card main-card border-warning border border-2 h-100 mb-0">
+            <div class="card-header"><span class="text-dark fs-6"><i class="bi bi-tools text-warning me-2"></i>Edición Manual</span></div>
+            <div class="card-body d-flex flex-column">
+              {% if tareas_reparacion_editables %}
+                <div class="d-flex flex-wrap gap-1 mb-3">
+                  {% for tarea_editable in tareas_reparacion_editables %}
+                    <a href="{% url 'detalle_tarea' tarea_editable.id %}" class="btn btn-outline-secondary btn-sm" style="font-size: 0.75rem;">Editar Tarea #{{ tarea_editable.id }}</a>
+                  {% endfor %}
+                </div>
               {% else %}
-                <tr><td colspan="4" class="text-center text-muted py-4">No hay datos disponibles</td></tr>
+                <div class="alert alert-warning py-1 small mb-3">No hay tareas "Por Reparar" para modificar.</div>
               {% endif %}
-            </tbody>
-          </table>
+              <div class="d-flex gap-2 mt-auto">
+                <form method="post" class="m-0 flex-grow-1">
+                  {% csrf_token %}
+                  <button type="submit" name="accion" value="terminar_revision_pedido" class="btn btn-success btn-sm w-100">Finalizar</button>
+                </form>
+                <a href="?" class="btn btn-outline-secondary btn-sm">Cancelar</a>
+              </div>
+            </div>
+          </div>
         </div>
+        {% endif %}
       </div>
-      <div class="card-footer bg-white p-3 d-flex justify-content-end gap-2">
-        <form method="post" class="m-0">
-          {% csrf_token %}
-          <button type="button" class="btn btn-outline-danger px-4" data-confirm-action="cancelar_presupuesto" data-confirm-url="{% url 'detalle_pedido' pedido.id %}" data-confirm-title="Rechazar Presupuesto" data-confirm-message="¿El cliente rechazó el trabajo? Se borrarán los materiales y pasará a terminado." data-confirm-button="Rechazar y Cancelar" data-confirm-button-class="btn-danger">
-            <i class="bi bi-x-lg me-1"></i> Cliente Rechazó
-          </button>
-          <button type="submit" name="accion" value="aprobar_presupuesto" class="btn btn-success px-5 fw-bold">
-            <i class="bi bi-check-lg me-1"></i> Cliente Aprobó
-          </button>
-        </form>
-      </div>
-    </div>
-  {% endif %}
-
-  {% if pedido.estado == 'revisado' and control %}
-    <div class="card shadow-sm border border-info mb-4">
-      <div class="card-header bg-transparent border-bottom d-flex justify-content-between align-items-center pt-3 pb-3 px-4">
-        <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-info-circle text-info me-2"></i>Costo de Control de Calidad</h5>
-      </div>
-      <div class="card-body p-0">
-        <table class="table table-presupuesto mb-0">
-          <tbody>
-            <tr>
-              <td class="p-3 fw-bold">Revisión de Tareas</td>
-              <td class="p-3 text-center">{{ desglose_presupuesto.num_tareas }} unidades</td>
-              <td class="p-3 text-end">${{ desglose_presupuesto.precio_revision_unitario|floatformat:2 }} c/u</td>
-              <td class="p-3 text-end fw-bold fs-5 text-info">${{ desglose_presupuesto.precio_revision_total|floatformat:2 }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  {% endif %}
-
-  {% if pedido.estado == 'terminado' or pedido.estado == 'retirado' or pedido.estado == 'notificado' %}
-    {% if presupuesto_real %}
-    <div class="card shadow-sm  overflow-hidden mb-4">
-      <div class="card-header bg-transparent border-bottom d-flex justify-content-between align-items-center pt-3 ">
-        <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-receipt text-success me-2"></i>Presupuesto Real (Trabajo Finalizado)</h5>
-        
-      </div>
-      <div class="card-body p-0">
-        <div class="table-responsive">
-          <table class="table table-presupuesto">
-            <thead class="bg-light">
-              <tr>
-                <th class="p-3 text-uppercase text-muted" style="font-size:0.8rem;">Concepto / Material Usado</th>
-                <th class="p-3 text-uppercase text-muted text-center" style="font-size:0.8rem;">Cantidad Real</th>
-                <th class="p-3 text-uppercase text-muted text-end" style="font-size:0.8rem;">Costo Unit.</th>
-                <th class="p-3 text-uppercase text-muted text-end" style="font-size:0.8rem;">Subtotal</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td class="p-3 fw-bold border-bottom">Revisión de tareas</td>
-                <td class="p-3 text-center border-bottom">{{ presupuesto_real.num_tareas }}</td>
-                <td class="p-3 text-end border-bottom">${{ presupuesto_real.precio_revision_unitario|floatformat:2 }}</td>
-                <td class="p-3 text-end fw-bold border-bottom">${{ presupuesto_real.precio_revision_total|floatformat:2 }}</td>
-              </tr>
-              
-              {% if presupuesto_real.num_tareas_reparacion > 0 %}
-              <tr>
-                <td class="p-3 fw-bold text-success border-bottom"><i class="bi bi-wrench-adjustable me-2"></i>Mano de obra (Reparación)</td>
-                <td class="p-3 text-center border-bottom">{{ presupuesto_real.num_tareas_reparacion }}</td>
-                <td class="p-3 text-end border-bottom">${{ presupuesto_real.precio_mano_obra_unitario|floatformat:2 }}</td>
-                <td class="p-3 text-end fw-bold text-success border-bottom">${{ presupuesto_real.total_mano_obra_reparacion|floatformat:2 }}</td>
-              </tr>
-              {% endif %}
-              
-              {% for material in presupuesto_real.desglose_materiales %}
-              <tr>
-                <td class="p-3 border-bottom"><i class="bi bi-box-seam text-muted me-2"></i>{{ material.material }}</td>
-                <td class="p-3 text-center border-bottom">{{ material.cantidad }}</td>
-                <td class="p-3 text-end border-bottom">${{ material.precio_unitario|floatformat:2 }}</td>
-                <td class="p-3 text-end text-primary fw-medium border-bottom">${{ material.subtotal|floatformat:2 }}</td>
-              </tr>
-              {% empty %}
-              <tr><td colspan="4" class="p-3 text-center text-muted py-3 border-bottom">No se utilizaron materiales en esta reparación.</td></tr>
-              {% endfor %}
-              
-              <tr class="bg-light">
-                <td colspan="3" class="p-3 text-end text-muted fw-bold border-bottom">Subtotal Materiales:</td>
-                <td class="p-3 text-end fw-bold border-bottom">${{ presupuesto_real.total_materiales_real|floatformat:2 }}</td>
-              </tr>
-              <tr class="bg-success bg-opacity-10">
-                <td colspan="3" class="p-3 text-end fw-bold text-dark fs-5 border-0">TOTAL A COBRAR:</td>
-                <td class="p-3 text-end fw-bold text-success fs-5 border-0">${{ presupuesto_real.total_general|floatformat:2 }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-    {% endif %}
-  {% endif %}
-
-  <div class="d-flex justify-content-between align-items-center bg-white p-3 rounded shadow-sm border mt-5">
-    <div>
-      <a href="{% url 'home' %}" class="btn btn-outline-secondary me-2">
-        <i class="bi bi-arrow-left"></i> Volver al Inicio
-      </a>
-      
-      {% if mensaje_exito %}
-        <span class="text-success fw-bold"><i class="bi bi-check-circle me-1"></i>{{ mensaje_exito }}</span>
       {% endif %}
-    </div>
 
-    <div class="d-flex gap-2 flex-wrap">
+      {% if pedido.estado == 'presupuestado' or pedido.estado == 'aprobado' and not control and todastareasrevisadas %}
+        <div class="card main-card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <span class="text-dark fs-5"><i class="bi bi-calculator text-primary me-2"></i>Presupuesto Estimado</span>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table receipt-table mb-0">
+                <thead>
+                  <tr>
+                    <th class="ps-4">Detalle del Concepto</th>
+                    <th class="text-center">Cant.</th>
+                    <th class="text-end">Precio Unit.</th>
+                    <th class="text-end pe-4">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% if desglose_presupuesto %}
+                    <tr>
+                      <td class="ps-4">
+                        <div class="fw-bold text-dark"><i class="bi bi-search text-info me-2"></i>Revisión Técnica Base</div>
+                      </td>
+                      <td class="text-center"><span class="badge bg-secondary bg-opacity-10 text-secondary border">{{ desglose_presupuesto.num_tareas }}</span></td>
+                      <td class="text-end text-muted">${{ desglose_presupuesto.precio_revision_unitario|floatformat:2 }}</td>
+                      <td class="text-end fw-bold text-dark pe-4">${{ desglose_presupuesto.precio_revision_total|floatformat:2 }}</td>
+                    </tr>
+                    {% if desglose_presupuesto.num_tareas_reparacion > 0 %}
+                    <tr>
+                      <td class="ps-4">
+                        <div class="fw-bold text-dark"><i class="bi bi-wrench-adjustable text-success me-2"></i>Mano de Obra (Reparación)</div>
+                      </td>
+                      <td class="text-center"><span class="badge bg-secondary bg-opacity-10 text-secondary border">{{ desglose_presupuesto.num_tareas_reparacion }}</span></td>
+                      <td class="text-end text-muted">${{ desglose_presupuesto.precio_mano_obra_unitario|floatformat:2 }}</td>
+                      <td class="text-end fw-bold text-dark pe-4">${{ desglose_presupuesto.total_mano_obra_reparacion|floatformat:2 }}</td>
+                    </tr>
+                    {% endif %}
+                    {% for material in desglose_presupuesto.desglose_materiales %}
+                    <tr>
+                      <td class="ps-4">
+                        <div class="fw-medium text-dark"><i class="bi bi-box-seam text-secondary me-2"></i>{{ material.material }}</div>
+                      </td>
+                      <td class="text-center"><span class="badge bg-secondary bg-opacity-10 text-secondary border">{{ material.cantidad }}</span></td>
+                      <td class="text-end text-muted">${{ material.precio_unitario|floatformat:2 }}</td>
+                      <td class="text-end fw-bold text-dark pe-4">${{ material.subtotal|floatformat:2 }}</td>
+                    </tr>
+                    {% endfor %}
+                  {% else %}
+                    <tr><td colspan="4" class="text-center text-muted py-4">No hay datos disponibles</td></tr>
+                  {% endif %}
+                </tbody>
+              </table>
+            </div>
+
+            {% if desglose_presupuesto %}
+            <div class="summary-box d-flex flex-column gap-2 mx-3 mb-3 mt-2 rounded-3 border">
+              <div class="d-flex justify-content-between align-items-center text-muted small px-2">
+                <span class="fw-bold text-uppercase">Subtotal Materiales</span>
+                <span class="fw-bold">${{ desglose_presupuesto.total_materiales|floatformat:2 }}</span>
+              </div>
+              <hr class="my-1 border-secondary opacity-25">
+              <div class="d-flex justify-content-between align-items-center px-2 mt-1">
+                <span class="fs-5 fw-bold text-dark">TOTAL ESTIMADO</span>
+                <span class="fs-3 fw-bold text-primary">${{ desglose_presupuesto.total_general|floatformat:2 }}</span>
+              </div>
+            </div>
+            {% endif %}
+          </div>
+          {% if pedido.estado == 'presupuestado' %}
+          <div class="card-footer bg-white p-3 d-flex justify-content-end gap-2 border-top-0">
+            <form method="post" class="m-0 w-100 d-flex gap-2">
+              {% csrf_token %}
+              <button type="button" class="btn btn-outline-danger flex-grow-1 fw-bold py-2" data-confirm-action="cancelar_presupuesto" data-confirm-url="{% url 'detalle_pedido' pedido.id %}" data-confirm-title="Rechazar Presupuesto" data-confirm-message="¿El cliente rechazó el trabajo? Se borrarán los materiales y pasará a terminado." data-confirm-button="Rechazar y Cancelar" data-confirm-button-class="btn-danger">
+                <i class="bi bi-x-lg me-1"></i> Cliente Rechazó
+              </button>
+              <button type="submit" name="accion" value="aprobar_presupuesto" class="btn btn-success flex-grow-1 fw-bold py-2 shadow-sm">
+                <i class="bi bi-check-lg me-1"></i> Cliente Aprobó
+              </button>
+            </form>
+          </div>
+          {% endif %}
+        </div>
+      {% endif %}
+
+      {% if pedido.estado == 'revisado' and control %}
+        <div class="card main-card border-info">
+          <div class="card-header">
+            <span class="text-dark fs-5"><i class="bi bi-info-circle text-info me-2"></i>Costo de Control de Calidad</span>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table receipt-table mb-0">
+                <thead>
+                  <tr>
+                    <th class="ps-4">Detalle del Concepto</th>
+                    <th class="text-center">Cant.</th>
+                    <th class="text-end">Precio Unit.</th>
+                    <th class="text-end pe-4">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="ps-4">
+                      <div class="fw-bold text-dark"><i class="bi bi-search text-info me-2"></i>Revisión Técnica Base</div>
+                    </td>
+                    <td class="text-center"><span class="badge bg-secondary bg-opacity-10 text-secondary border">{{ desglose_presupuesto.num_tareas }}</span></td>
+                    <td class="text-end text-muted">${{ desglose_presupuesto.precio_revision_unitario|floatformat:2 }}</td>
+                    <td class="text-end fw-bold text-dark pe-4">${{ desglose_presupuesto.precio_revision_total|floatformat:2 }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            
+            <div class="summary-box d-flex flex-column gap-2 mx-3 mb-3 mt-2 rounded-3 border border-info border-opacity-50" style="background-color: #f0f9ff;">
+              <div class="d-flex justify-content-between align-items-center px-2">
+                <span class="fs-5 fw-bold text-dark">TOTAL A COBRAR</span>
+                <span class="fs-3 fw-bold text-info">${{ desglose_presupuesto.precio_revision_total|floatformat:2 }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      {% endif %}
+
       {% if pedido.estado == 'terminado' or pedido.estado == 'retirado' or pedido.estado == 'notificado' %}
-        <form method="post" class="m-0">
-          {% csrf_token %}
-          <button type="submit" name="accion" value="emitir_comprobante" class="btn btn-outline-primary">
-            <i class="bi bi-file-earmark-pdf"></i> Generar Comprobante
-          </button>
-        </form>
-        <form method="post" class="m-0">
-          {% csrf_token %}
-          <button type="submit" name="accion" value="enviar_comprobante" class="btn btn-primary">
-            <i class="bi bi-envelope-paper"></i> Enviar por Email
-          </button>
-        </form>
-        
-        {% if pedido.estado == 'notificado' %}
-          <form method="post" class="m-0">
-            {% csrf_token %}
-            <button type="submit" name="accion" value="retirar_pedido" class="btn btn-success fw-bold">
-              <i class="bi bi-box-arrow-right"></i> Entregar al Cliente
-            </button>
-          </form>
+        {% if presupuesto_real %}
+        <div class="card main-card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <span class="text-dark fs-5"><i class="bi bi-receipt text-success me-2"></i>Presupuesto Real (Finalizado)</span>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table receipt-table mb-0">
+                <thead>
+                  <tr>
+                    <th class="ps-4">Detalle del Concepto Usado</th>
+                    <th class="text-center">Cant. Real</th>
+                    <th class="text-end">Precio Unit.</th>
+                    <th class="text-end pe-4">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="ps-4">
+                      <div class="fw-bold text-dark"><i class="bi bi-search text-info me-2"></i>Revisión Técnica Base</div>
+                    </td>
+                    <td class="text-center"><span class="badge bg-secondary bg-opacity-10 text-secondary border">{{ presupuesto_real.num_tareas }}</span></td>
+                    <td class="text-end text-muted">${{ presupuesto_real.precio_revision_unitario|floatformat:2 }}</td>
+                    <td class="text-end fw-bold text-dark pe-4">${{ presupuesto_real.precio_revision_total|floatformat:2 }}</td>
+                  </tr>
+                  
+                  {% if presupuesto_real.num_tareas_reparacion > 0 %}
+                  <tr>
+                    <td class="ps-4">
+                      <div class="fw-bold text-dark"><i class="bi bi-wrench-adjustable text-success me-2"></i>Mano de Obra (Reparación)</div>
+                    </td>
+                    <td class="text-center"><span class="badge bg-secondary bg-opacity-10 text-secondary border">{{ presupuesto_real.num_tareas_reparacion }}</span></td>
+                    <td class="text-end text-muted">${{ presupuesto_real.precio_mano_obra_unitario|floatformat:2 }}</td>
+                    <td class="text-end fw-bold text-dark pe-4">${{ presupuesto_real.total_mano_obra_reparacion|floatformat:2 }}</td>
+                  </tr>
+                  {% endif %}
+                  
+                  {% for material in presupuesto_real.desglose_materiales %}
+                  <tr>
+                    <td class="ps-4">
+                      <div class="fw-medium text-dark"><i class="bi bi-box-seam text-secondary me-2"></i>{{ material.material }}</div>
+                    </td>
+                    <td class="text-center"><span class="badge bg-secondary bg-opacity-10 text-secondary border">{{ material.cantidad }}</span></td>
+                    <td class="text-end text-muted">${{ material.precio_unitario|floatformat:2 }}</td>
+                    <td class="text-end fw-bold text-dark pe-4">${{ material.subtotal|floatformat:2 }}</td>
+                  </tr>
+                  {% empty %}
+                  <tr><td colspan="4" class="text-center text-muted py-4">No se utilizaron materiales adicionales.</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+
+            <div class="summary-box success-theme d-flex flex-column gap-2 mx-3 mb-3 mt-2 rounded-3 border border-success border-opacity-25">
+              <div class="d-flex justify-content-between align-items-center text-muted small px-2">
+                <span class="fw-bold text-uppercase text-success opacity-75">Subtotal Materiales</span>
+                <span class="fw-bold text-success opacity-75">${{ presupuesto_real.total_materiales_real|floatformat:2 }}</span>
+              </div>
+              <hr class="my-1 border-success opacity-25">
+              <div class="d-flex justify-content-between align-items-center px-2 mt-1">
+                <span class="fs-5 fw-bold text-dark">TOTAL A COBRAR</span>
+                <span class="fs-3 fw-bold text-success">${{ presupuesto_real.total_general|floatformat:2 }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
         {% endif %}
       {% endif %}
 
-      {% if pedido.estado == 'retirado' or pedido.estado == 'asignado' or pedido.estado == 'pendiente' %}
-        <button type="button" class="btn btn-outline-danger" data-confirm-action="borrar_pedido" data-confirm-url="{% url 'detalle_pedido' pedido.id %}" data-confirm-title="Eliminar pedido" data-confirm-message="Este pedido solo puede eliminarse si está retirado o recién creado. Se borrarán todas las tareas." data-confirm-button="Eliminar Definitivamente" data-confirm-button-class="btn-danger" data-confirm-pedido-id="{{ pedido.id }}">
-          <i class="bi bi-trash3"></i> Eliminar Pedido
-        </button>
-      {% endif %}
     </div>
   </div>
-
 </div>
 
 {% for tarea in tareas %}
@@ -501,49 +571,69 @@
   <div class="modal fade" id="modalEditarTarea{{ tarea.id }}" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content border-0 shadow">
-        
-        <div class="modal-header bg-dark border-0">
-          <h5 class="modal-title text-white mb-0 fw-bold">Editar Asignación - Tarea #{{ tarea.id }}</h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="filter: invert(1) grayscale(100%) brightness(200%);"></button>
+        <div class="modal-header bg-white border-bottom">
+          <h5 class="modal-title text-dark mb-0 fw-bold">Editar Asignación - Tarea #{{ tarea.id }}</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
-        
         <form method="post">
           {% csrf_token %}
           <div class="modal-body p-4">
             <input type="hidden" name="accion" value="editar_tarea_asignacion">
             <input type="hidden" name="tarea_id" value="{{ tarea.id }}">
-            
             <div class="alert alert-warning small border-0 bg-warning-subtle text-dark mb-4">
               <i class="bi bi-info-circle-fill me-1"></i> Modificá el operario o la prioridad. Si te equivocaste de amortiguador, debés eliminar la tarea.
             </div>
-            
             <div class="mb-4">
               <label class="form-label fw-bold text-secondary text-uppercase" style="font-size: 0.8rem;">Operario Asignado</label>
-              <select name="operario" class="form-select form-select-lg" required>
+              <select name="operario" class="form-select" required>
                 {% for op in operarios_disponibles %}
-                  <option value="{{ op.id }}" {% if tarea.operario.id == op.id %}selected{% endif %}>
-                    {{ op.nombre }} {{ op.apellido }} (Legajo: {{ op.legajo }})
-                  </option>
+                  <option value="{{ op.id }}" {% if tarea.operario.id == op.id %}selected{% endif %}>{{ op.nombre }} {{ op.apellido }} (L: {{ op.legajo }})</option>
                 {% endfor %}
               </select>
             </div>
-            
             <div class="mb-2">
               <label class="form-label fw-bold text-secondary text-uppercase" style="font-size: 0.8rem;">Prioridad</label>
-              <select name="prioridad" class="form-select form-select-lg" required>
-                <option value="alta" {% if tarea.prioridad == 'alta' %}selected{% endif %}>🔴 Prioridad Alta</option>
-                <option value="media" {% if tarea.prioridad == 'media' %}selected{% endif %}>🟡 Prioridad Media</option>
-                <option value="baja" {% if tarea.prioridad == 'baja' %}selected{% endif %}>🟢 Prioridad Baja</option>
+              <select name="prioridad" class="form-select" required>
+                <option value="alta" {% if tarea.prioridad == 'alta' %}selected{% endif %}>🔴 Alta</option>
+                <option value="media" {% if tarea.prioridad == 'media' %}selected{% endif %}>🟡 Media</option>
+                <option value="baja" {% if tarea.prioridad == 'baja' %}selected{% endif %}>🟢 Baja</option>
               </select>
             </div>
           </div>
-          
           <div class="modal-footer bg-light border-top-0 p-3">
             <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Cancelar</button>
-            <button type="submit" class="btn btn-primary px-4 fw-bold">Guardar Cambios</button>
+            <button type="submit" class="btn btn-primary px-4 fw-bold">Guardar</button>
           </div>
         </form>
+      </div>
+    </div>
+  </div>
+  {% endif %}
 
+  {% if tarea.estado == 'no revisada' %}
+  <div class="modal fade" id="modalRechazarTarea{{ tarea.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-0 shadow">
+        <div class="modal-header bg-white border-bottom">
+          <h5 class="modal-title text-dark mb-0 fw-bold">Rechazar Sugerencia - Tarea #{{ tarea.id }}</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <form method="post">
+          {% csrf_token %}
+          <div class="modal-body p-4">
+            <input type="hidden" name="accion" value="rechazar_sugerencia_rapida">
+            <input type="hidden" name="tarea_id" value="{{ tarea.id }}">
+            <p class="text-muted small mb-4">La tarea volverá a estado <strong>Pendiente</strong> con una alerta visible en el panel del operario.</p>
+            <div class="mb-3 text-start">
+              <label class="form-label fw-bold">Motivo del rechazo <span class="text-danger">*</span></label>
+              <textarea name="motivo_devolucion" class="form-control bg-light" rows="4" placeholder="Detalle por qué se rechaza..." required></textarea>
+            </div>
+          </div>
+          <div class="modal-footer bg-light border-top-0 p-3">
+            <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-danger px-4 fw-bold">Confirmar</button>
+          </div>
+        </form>
       </div>
     </div>
   </div>
@@ -554,41 +644,30 @@
 <div class="modal fade" id="modalEditarFechaLimite" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content border-0 shadow">
-      
-      <div class="modal-header bg-dark border-0">
-        <h5 class="modal-title text-white mb-0 fw-bold"><i class="bi bi-calendar-event me-2"></i>Modificar Fecha Límite</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="filter: invert(1) grayscale(100%) brightness(200%);"></button>
+      <div class="modal-header bg-white border-bottom">
+        <h5 class="modal-title text-dark mb-0 fw-bold"><i class="bi bi-calendar-event me-2"></i>Modificar Fecha Límite</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-      
       <form method="post">
         {% csrf_token %}
         <div class="modal-body p-4">
           <input type="hidden" name="accion" value="editar_fecha_limite_pedido">
-          
           <div class="alert alert-info small border-0 bg-info-subtle text-dark mb-4">
-            <i class="bi bi-info-circle-fill me-1"></i> La fecha límite actual es <strong>{{ pedido.fechaSalidaEstimada|date:'d/m/Y' }}</strong>. Al cambiarla, también se ajustará el límite de las tareas activas para los operarios.
+            <i class="bi bi-info-circle-fill me-1"></i> Límite actual: <strong>{{ pedido.fechaSalidaEstimada|date:'d/m/Y' }}</strong>.
           </div>
-          
           <div class="mb-3">
-            <label class="form-label fw-bold text-secondary text-uppercase" style="font-size: 0.8rem;">Nueva Fecha Estimada de Salida</label>
-            <input 
-              type="date" 
-              name="nueva_fecha_limite" 
-              class="form-control form-control-lg" 
-              value="{{ pedido.fechaSalidaEstimada|date:'Y-m-d' }}" 
-              required
-            >
+            <label class="form-label fw-bold text-secondary text-uppercase" style="font-size: 0.8rem;">Nueva Fecha</label>
+            <input type="date" name="nueva_fecha_limite" class="form-control" value="{{ pedido.fechaSalidaEstimada|date:'Y-m-d' }}" required>
           </div>
         </div>
-        
         <div class="modal-footer bg-light border-top-0 p-3">
           <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Cancelar</button>
-          <button type="submit" class="btn btn-primary px-4 fw-bold">Actualizar Fecha</button>
+          <button type="submit" class="btn btn-primary px-4 fw-bold">Actualizar</button>
         </div>
       </form>
-
     </div>
   </div>
 </div>
 {% endif %}
+
 {% endblock %}
