@@ -43,7 +43,7 @@ class Observacion(models.Model):
     # Campos de control lógico (necesarios para el if/else en vistas y templates)
     sugerencia_tecnica = models.CharField(max_length=20, choices=[('control', 'Control'), ('reparacion', 'Reparación')], blank=True, null=True)
     valor_diagrama = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
-    
+    valor_diagrama_final = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     # 1. El campo que el operario llena a mano en el formulario
     detalle_operario = models.TextField(blank=True, null=True)
     

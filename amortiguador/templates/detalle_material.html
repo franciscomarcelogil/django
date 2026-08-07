@@ -1,169 +1,433 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="container mt-4">
-    <a href="{% url 'control_inventario' %}" class="btn btn-outline-secondary btn-sm mb-3">&larr; Volver al Inventario</a>
+<style>
+  .main-card {
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+    background: #fff;
+  }
+  .main-card > .card-header {
+    background-color: transparent;
+    border-bottom: 1px solid rgba(0,0,0,.05);
+    padding: 1.25rem 1.5rem;
+    font-weight: 700;
+  }
+  .clean-table th {
+    background-color: #f8f9fa; color: #6c757d; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.75rem;
+    border-bottom: 2px solid #e9ecef; padding: 1rem;
+  }
+  .clean-table td { padding: 1rem; vertical-align: middle; border-bottom: 1px dashed #e9ecef; }
+  .alert-sm { padding: 0.5rem 0.75rem; margin: 0; font-size: 0.875rem; }
+  
+  /* Estilos para modales estandarizados */
+  .modal-header { background-color: #ffffff !important; border-bottom: 1px solid #dee2e6 !important; }
+  .modal-title { color: #212529 !important; font-weight: 700 !important; }
+  .btn-close { filter: none !important; }
+</style>
+
+<div class="container dashboard-shell mt-4 mb-5" style="max-width: 1400px;">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
+        <div>
+            <div class="text-uppercase fw-bold text-muted small mb-1" style="letter-spacing: 1px;">Control de Inventario</div>
+            <h2 class="fw-bold mb-0 text-dark">Detalle del Material: {{ material.nombre }}</h2>
+        </div>
+        <a href="{% url 'control_inventario' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Volver al Inventario
+        </a>
+    </div>
     
     <div class="row g-4">
-        <div class="col-md-5">
-            <div class="card shadow-sm border-0 bg-white mb-4">
-                <div class="card-header bg-dark">
-                    <h5 class="mb-0  text-white">Material: {{ material.nombre }}</h5>
+        <div class="col-lg-5">
+            <div class="card main-card mb-4 bg-light">
+                <div class="card-header border-bottom-0 pt-4">
+                    <span class="text-dark fs-5"><i class="bi bi-box-seam text-primary me-2"></i>Gestión de Stock y Precios</span>
                 </div>
-                <div class="card-body">
+                <div class="card-body p-4 pt-2">
                     <form method="POST">
                         {% csrf_token %}
                         <input type="hidden" name="accion" value="editar_material">
                         
-                        <div class="mb-3">
-                            <label>Stock Actual (Disponible):</label>
-                            <h3 class="{% if material.stockActual < material.stockMinimo %}text-danger{% else %}text-success{% endif %}">
-                                {{ material.stockActual }} {{ material.unidad }}s
-                            </h3>
-                            <small class="text-muted">Reservado en pedidos: {{ material.stockreservado }}</small>
+                        <div class="row g-3 mb-4">
+                            <div class="col-6">
+                                <div class="p-3 bg-white border rounded shadow-sm h-100">
+                                    <div class="text-uppercase fw-bold text-secondary mb-1" style="font-size: 0.7rem;">Stock Disponible</div>
+                                    <h3 class="mb-0 {% if material.stockActual < material.stockMinimo %}text-danger{% else %}text-success{% endif %}">
+                                        {{ material.stockActual }} <span class="fs-6 text-muted">{{ material.unidad }}s</span>
+                                    </h3>
+                                    <div class="small text-muted mt-2 border-top pt-2">Reservado: <strong>{{ material.stockreservado }}</strong></div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="p-3 bg-white border rounded shadow-sm h-100">
+                                    <label class="text-uppercase fw-bold text-secondary mb-1 d-block" style="font-size: 0.7rem;">Stock Mínimo</label>
+                                    <input type="number" name="stock_minimo" class="form-control fw-bold text-dark" value="{{ material.stockMinimo }}">
+                                </div>
+                            </div>
                         </div>
 
-                        <div class="mb-3">
-                            <label class="form-label">Stock Mínimo</label>
-                            <input type="number" name="stock_minimo" class="form-control" value="{{ material.stockMinimo }}">
-                        </div>
+                        <hr class="mb-4">
 
                         <div class="mb-3">
-                            <label class="form-label">Costo Promedio (Automático)</label>
-                            <input type="text" class="form-control bg-light" value="${{ material.costo_unidad }}" readonly>
+                            <label class="form-label fw-bold text-secondary small text-uppercase">Costo Promedio Ponderado (PPP)</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light text-muted border-end-0">$</span>
+                                <input type="text" id="costo_unidad" class="form-control bg-light border-start-0 ps-0 fw-bold" value="{{ material.costo_unidad|stringformat:'f' }}" readonly>
+                            </div>
+                            <small class="text-muted" style="font-size: 0.75rem;">Se recalcula automáticamente con cada compra nueva.</small>
                         </div>
 
-                        <div class="mb-3">
-                            <label class="form-label">Precio de Venta Sugerido al Público ($)</label>
-                            <input type="number" step="0.01" name="precio_venta" class="form-control border-success" value="{{ material.precio_venta|stringformat:'f' }}">
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-5">
+                                <label class="form-label fw-bold text-secondary small text-uppercase">Margen (%)</label>
+                                <div class="input-group">
+                                    <input type="number" step="0.1" id="margen_ganancia" class="form-control border-success text-success fw-bold" value="{{ margen_actual|stringformat:'f' }}">
+                                    <span class="input-group-text bg-success-subtle border-success text-success">%</span>
+                                </div>
+                            </div>
+                            <div class="col-md-7">
+                                <label class="form-label fw-bold text-secondary small text-uppercase">Precio Venta Final</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-success text-white border-success">$</span>
+                                    <input type="number" step="0.01" id="precio_venta" name="precio_venta" class="form-control border-success fw-bold fs-5" value="{{ material.precio_venta|stringformat:'f' }}">
+                                </div>
+                            </div>
                         </div>
 
-                        <button type="submit" class="btn btn-primary w-100">Actualizar Datos</button>
+                        <button type="submit" class="btn btn-primary w-100 fw-bold py-2 shadow-sm">Guardar Cambios Manuales</button>
                     </form>
+                </div>
+            </div>
+            <div class="card main-card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span class="text-dark fs-6"><i class="bi bi-tag-fill text-info me-2"></i>Últimos 5 Precios de Venta</span>
+                    {% if historico_precios %}
+                    <button class="btn btn-sm btn-outline-info fw-bold" data-bs-toggle="modal" data-bs-target="#modalHistorialPrecios">Ver Historial</button>
+                    {% endif %}
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table clean-table mb-0">
+                            <thead>
+                                <tr>
+                                    <th class="ps-4">Vigente desde</th>
+                                    <th class="text-end pe-4">Precio Público</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for precio in historico_precios|slice:":5" %}
+                                <tr>
+                                    <td class="ps-4 text-muted">{{ precio.fecha_de_vigencia|date:"d/m/Y" }}</td>
+                                    <td class="text-end pe-4 fw-bold text-primary">${{ precio.precio_venta }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="2" class="text-center text-muted py-4">No hay histórico de precios.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="col-md-7">
-            <div class="card shadow-sm border-0 mb-4 bg-light">
-                <div class="card-body">
-                    <h5 class="fw-bold text-success mb-3"><i class="bi bi-cart-plus"></i> Cargar Nueva Compra</h5>
+        <div class="col-lg-7">
+            <div class="card main-card mb-4 bg-light">
+                <div class="card-header border-bottom-0 pt-4">
+                    <span class="text-dark fs-5"><i class="bi bi-cart-plus text-success me-2"></i>Cargar Nueva Compra</span>
+                </div>
+                <div class="card-body p-4 pt-2">
                     
-                    <!-- SECCIÓN 1: Búsqueda de Proveedor -->
                     <div id="busqueda-proveedor" class="mb-4">
                         <div class="row g-2">
                             <div class="col-md-8">
-                                <label class="small fw-bold">CUIT Proveedor</label>
-                                <input type="text" id="cuit_input" class="form-control" placeholder="Ej: 30111111118">
+                                <label class="small fw-bold text-secondary text-uppercase mb-1">CUIT del Proveedor</label>
+                                <input type="text" id="cuit_input" class="form-control form-control-lg" placeholder="Ej: 30111111118">
                             </div>
                             <div class="col-md-4 d-flex align-items-end">
-                                <button type="button" id="btn_buscar" class="btn btn-outline-primary w-100">Buscar</button>
+                                <button type="button" id="btn_buscar" class="btn btn-outline-primary w-100 fw-bold" style="height: calc(1.5em + 1rem + 2px);">Buscar</button>
                             </div>
                         </div>
                         <div id="estado-busqueda" class="mt-2"></div>
                     </div>
 
-                    <!-- SECCIÓN 2: Datos del Proveedor (Se muestra si lo encuentra) -->
                     <div id="proveedor-encontrado" class="mb-4" style="display: none;">
-                        <div class="alert alert-success" role="alert">
-                            <strong id="nombre_prov_encontrado"></strong><br>
-                            <small>CUIT: <span id="cuit_encontrado"></span></small><br>
-                            <small>Teléfono: <span id="telefono_encontrado"></span></small>
+                        <div class="alert border-success bg-success-subtle text-dark shadow-sm" role="alert">
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="bi bi-building-check fs-4 text-success me-2"></i>
+                                <strong id="nombre_prov_encontrado" class="fs-5"></strong>
+                            </div>
+                            <div class="d-flex gap-4 ms-4 ps-2 small">
+                                <span><i class="bi bi-upc-scan text-muted me-1"></i> <span id="cuit_encontrado" class="fw-bold"></span></span>
+                                <span><i class="bi bi-telephone text-muted me-1"></i> <span id="telefono_encontrado" class="fw-bold"></span></span>
+                            </div>
                         </div>
                         <input type="hidden" id="proveedor_id" value="">
                     </div>
 
-                    <!-- SECCIÓN 3: Formulario para Crear Proveedor (Se muestra si NO lo encuentra) -->
                     <div id="formulario-nuevo-proveedor" style="display: none;">
-                        <div class="alert alert-warning" role="alert">
-                            <strong>Proveedor no encontrado</strong> - Complete los datos para registrarlo
+                        <div class="alert border-warning bg-warning-subtle text-dark shadow-sm" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i><strong>Proveedor nuevo</strong> - Complete sus datos comerciales
                         </div>
-                        <div class="row g-2 mb-3">
+                        <div class="row g-3 mb-4 bg-white p-3 border rounded">
                             <div class="col-md-12">
-                                <label class="small fw-bold">Nombre Empresa</label>
-                                <input type="text" id="nombre_prov_nuevo" class="form-control" placeholder="Razón Social" required>
+                                <label class="small fw-bold text-secondary text-uppercase mb-1">Nombre / Razón Social</label>
+                                <input type="text" id="nombre_prov_nuevo" class="form-control" placeholder="Nombre del proveedor" required>
                             </div>
                             <div class="col-md-6">
-                                <label class="small fw-bold">Teléfono</label>
+                                <label class="small fw-bold text-secondary text-uppercase mb-1">Teléfono</label>
                                 <input type="text" id="telefono_prov_nuevo" class="form-control" placeholder="Ej: 1123456789">
                             </div>
                             <div class="col-md-6">
-                                <label class="small fw-bold">Email (Opcional)</label>
+                                <label class="small fw-bold text-secondary text-uppercase mb-1">Email (Opcional)</label>
                                 <input type="email" id="email_prov_nuevo" class="form-control" placeholder="email@empresa.com">
                             </div>
                         </div>
                     </div>
 
-                    <!-- SECCIÓN 4: Formulario de Compra (Se muestra después de seleccionar/crear proveedor) -->
-                    <form id="formulario-compra" method="POST" style="display: none;">
+                    <form id="formulario-compra" method="POST" style="display: none;" class="bg-white p-4 border rounded shadow-sm">
                         {% csrf_token %}
                         <input type="hidden" name="accion" value="cargar_compra">
                         <input type="hidden" name="cuit_proveedor" id="cuit_hidden">
                         <input type="hidden" name="nombre_prov" id="nombre_prov_hidden">
                         <input type="hidden" name="telefono_prov" id="telefono_prov_hidden">
                         
-                        <div class="row g-2">
+                        <input type="hidden" name="margen_aplicado" id="margen_hidden">
+                        
+                        <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">Detalle de Factura</h6>
+                        <div class="row g-3">
                             <div class="col-md-6">
-                                <label class="small fw-bold">Cantidad Ingresada</label>
-                                <input type="number" name="cantidad" id="cantidad" class="form-control" min="1" required>
+                                <label class="small fw-bold text-secondary text-uppercase mb-1">Cantidad Ingresada</label>
+                                <input type="number" name="cantidad" id="cantidad" class="form-control form-control-lg" min="1" required>
                             </div>
                             <div class="col-md-6">
-                                <label class="small fw-bold">Costo Unitario ($)</label>
-                                <input type="number" step="0.01" name="costo_unitario" id="costo_unitario" class="form-control" required>
+                                <label class="small fw-bold text-secondary text-uppercase mb-1">Costo Unitario ($)</label>
+                                <input type="number" step="0.01" name="costo_unitario" id="costo_unitario_input" class="form-control form-control-lg" required>
                             </div>
                         </div>
-                        <div class="mt-3">
-                            <button type="submit" class="btn btn-success w-100">Registrar Ingreso</button>
+                        <div class="mt-4">
+                            <button type="submit" class="btn btn-success w-100 fw-bold py-2"><i class="bi bi-plus-circle me-1"></i> Registrar Ingreso y Recalcular PPP</button>
                         </div>
                     </form>
                 </div>
             </div>
 
-            <h5 class="fw-bold text-secondary">Historial de Compras</h5>
-            <div class="table-responsive bg-white rounded shadow-sm border">
-                <table class="table table-sm table-hover mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Fecha</th>
-                            <th>Proveedor</th>
-                            <th>Cant.</th>
-                            <th>Costo Unit.</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for c in historial_compras %}
-                        <tr>
-                            <td>{{ c.fecha_compra|date:"d/m/y" }}</td>
-                            <td>{{ c.proveedor.nombre }}</td>
-                            <td><span class="badge bg-success">+{{ c.cantidad }}</span></td>
-                            <td>${{ c.costo_unitario }}</td>
-                        </tr>
-                        {% empty %}
-                        <tr><td colspan="4" class="text-center text-muted">No hay compras registradas.</td></tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+            <div class="card main-card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span class="text-dark fs-6"><i class="bi bi-clock-history text-secondary me-2"></i>Últimas 5 Compras</span>
+                    {% if historial_compras %}
+                    <button class="btn btn-sm btn-outline-secondary fw-bold" data-bs-toggle="modal" data-bs-target="#modalHistorialCompras">Ver Historial</button>
+                    {% endif %}
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table clean-table mb-0">
+                            <thead>
+                                <tr>
+                                    <th class="ps-4">Fecha</th>
+                                    <th>Proveedor</th>
+                                    <th class="text-center">Cant.</th>
+                                    <th class="text-end pe-4">Costo Unit.</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for c in historial_compras|slice:":5" %}
+                                <tr>
+                                    <td class="ps-4 text-muted">{{ c.fecha_compra|date:"d/m/y" }}</td>
+                                    <td class="fw-medium text-dark">{{ c.proveedor.nombre }}</td>
+                                    <td class="text-center"><span class="badge bg-success-subtle text-success border border-success-subtle">+{{ c.cantidad }}</span></td>
+                                    <td class="text-end pe-4 fw-bold text-dark">${{ c.costo_unitario }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="4" class="text-center text-muted py-4">No hay compras registradas.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
 
-            <h5 class="fw-bold text-secondary mt-4">Histórico de Precios de Venta</h5>
-            <div class="table-responsive bg-white rounded shadow-sm border">
-                <table class="table table-sm table-hover mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Precio</th>
-                            <th>Vigente desde</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for precio in historico_precios %}
-                        <tr>
-                            <td>${{ precio.precio_venta }}</td>
-                            <td>{{ precio.fecha_de_vigencia|date:"d/m/Y" }}</td>
-                        </tr>
-                        {% empty %}
-                        <tr><td colspan="2" class="text-center text-muted">No hay histórico de precios.</td></tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+            
+
+            <div class="card main-card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span class="text-dark fs-6"><i class="bi bi-wrench-adjustable-circle text-primary me-2"></i>Últimas 5 Tareas que Utilizaron este Material</span>
+                    {% if tareas_material %}
+                    <button class="btn btn-sm btn-outline-primary fw-bold" data-bs-toggle="modal" data-bs-target="#modalHistorialTareas">Ver Historial</button>
+                    {% endif %}
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table clean-table mb-0">
+                            <thead>
+                                <tr>
+                                    <th class="ps-4">Tarea / Pedido</th>
+                                    <th>Amortiguador</th>
+                                    <th>Operario</th>
+                                    <th class="text-center">Cant. Usada</th>
+                                    <th class="text-end pe-4">Fecha Fin</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in tareas_material|slice:":5" %}
+                                <tr>
+                                    <td class="ps-4">
+                                        <a href="{% url 'detalle_tarea' item.tarea.id %}" class="fw-bold text-decoration-none">Tarea #{{ item.tarea.id }}</a>
+                                        <div class="small text-muted">Pedido #{{ item.tarea.pedido.id }}</div>
+                                    </td>
+                                    <td>
+                                        <span class="fw-medium text-dark">{{ item.tarea.amortiguador.nroSerieamortiguador }}</span>
+                                    </td>
+                                    <td class="small text-muted">
+                                        {{ item.tarea.operario.nombre }} {{ item.tarea.operario.apellido }}
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle fs-6">
+                                            {{ item.stockusado|default:item.stockrecomendado }}
+                                        </span>
+                                    </td>
+                                    <td class="text-end pe-4 text-muted small">
+                                        {{ item.tarea.fecha_finalizacion|date:"d/m/Y"|default:"-" }}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="5" class="text-center text-muted py-4">Este material no ha sido utilizado en ninguna tarea finalizada.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalHistorialCompras" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-clock-history text-secondary me-2"></i>Historial Completo de Compras</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="table-responsive">
+                    <table class="table clean-table mb-0">
+                        <thead>
+                            <tr>
+                                <th class="ps-4">Fecha</th>
+                                <th>Proveedor</th>
+                                <th class="text-center">Cant.</th>
+                                <th class="text-end pe-4">Costo Unit.</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for c in historial_compras %}
+                            <tr>
+                                <td class="ps-4 text-muted">{{ c.fecha_compra|date:"d/m/Y - H:i" }}</td>
+                                <td class="fw-medium text-dark">{{ c.proveedor.nombre }}</td>
+                                <td class="text-center"><span class="badge bg-success-subtle text-success border border-success-subtle">+{{ c.cantidad }}</span></td>
+                                <td class="text-end pe-4 fw-bold text-dark">${{ c.costo_unitario }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer bg-light border-top-0 p-3">
+                <button type="button" class="btn btn-secondary px-4 fw-bold" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalHistorialPrecios" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-tag-fill text-info me-2"></i>Historial Completo de Precios</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="table-responsive">
+                    <table class="table clean-table mb-0">
+                        <thead>
+                            <tr>
+                                <th class="ps-4">Vigente desde</th>
+                                <th class="text-end pe-4">Precio Público</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for precio in historico_precios %}
+                            <tr>
+                                <td class="ps-4 text-muted">{{ precio.fecha_de_vigencia|date:"d/m/Y" }}</td>
+                                <td class="text-end pe-4 fw-bold text-primary">${{ precio.precio_venta }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer bg-light border-top-0 p-3">
+                <button type="button" class="btn btn-secondary px-4 fw-bold" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalHistorialTareas" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-wrench-adjustable-circle text-primary me-2"></i>Historial Completo de Tareas que Utilizaron este Material</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="table-responsive">
+                    <table class="table clean-table mb-0">
+                        <thead>
+                            <tr>
+                                <th class="ps-4">Tarea / Pedido</th>
+                                <th>Amortiguador</th>
+                                <th>Operario</th>
+                                <th class="text-center">Cant. Usada</th>
+                                <th class="text-end pe-4">Fecha Fin</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in tareas_material %}
+                            <tr>
+                                <td class="ps-4">
+                                    <a href="{% url 'detalle_tarea' item.tarea.id %}" class="fw-bold text-decoration-none">Tarea #{{ item.tarea.id }}</a>
+                                    <div class="small text-muted">Pedido #{{ item.tarea.pedido.id }}</div>
+                                </td>
+                                <td>
+                                    <span class="fw-medium text-dark">{{ item.tarea.amortiguador.nroSerieamortiguador }}</span>
+                                </td>
+                                <td class="small text-muted">
+                                    {{ item.tarea.operario.nombre }} {{ item.tarea.operario.apellido }}
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle fs-6">
+                                        {{ item.stockusado|default:item.stockrecomendado }}
+                                    </span>
+                                </td>
+                                <td class="text-end pe-4 text-muted small">
+                                    {{ item.tarea.fecha_finalizacion|date:"d/m/Y"|default:"-" }}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="5" class="text-center text-muted py-4">No hay tareas asociadas a este material.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer bg-light border-top-0 p-3">
+                <button type="button" class="btn btn-secondary px-4 fw-bold" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>
@@ -171,6 +435,42 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // ---- LÓGICA DE PRECIOS Y MÁRGENES ----
+    const costoInput = document.getElementById('costo_unidad');
+    const margenInput = document.getElementById('margen_ganancia');
+    const precioVentaInput = document.getElementById('precio_venta');
+    const margenHidden = document.getElementById('margen_hidden');
+
+    if(margenInput && margenHidden) {
+        margenHidden.value = margenInput.value;
+    }
+
+    function calcularPrecioVenta() {
+        let costo = parseFloat(costoInput.value.replace(',', '.')) || 0;
+        let margen = parseFloat(margenInput.value) || 0;
+        if (costo > 0) {
+            let nuevoPrecio = costo * (1 + (margen / 100));
+            precioVentaInput.value = nuevoPrecio.toFixed(2);
+        }
+        if(margenHidden) margenHidden.value = margenInput.value;
+    }
+
+    function calcularMargen() {
+        let costo = parseFloat(costoInput.value.replace(',', '.')) || 0;
+        let precio = parseFloat(precioVentaInput.value) || 0;
+        if (costo > 0 && precio > 0) {
+            let nuevoMargen = ((precio - costo) / costo) * 100;
+            margenInput.value = nuevoMargen.toFixed(2);
+            if(margenHidden) margenHidden.value = margenInput.value;
+        }
+    }
+
+    if(margenInput && precioVentaInput) {
+        margenInput.addEventListener('input', calcularPrecioVenta);
+        precioVentaInput.addEventListener('input', calcularMargen);
+    }
+
+    // ---- LÓGICA DE BÚSQUEDA DE PROVEEDORES ----
     const cuitInput = document.getElementById('cuit_input');
     const btnBuscar = document.getElementById('btn_buscar');
     const estadoBusqueda = document.getElementById('estado-busqueda');
@@ -180,16 +480,14 @@ document.addEventListener('DOMContentLoaded', function() {
     
     let proveedorActual = null;
 
-    // Buscar proveedor
     btnBuscar.addEventListener('click', function() {
         const cuit = cuitInput.value.trim();
-        
         if (!cuit) {
-            estadoBusqueda.innerHTML = '<div class="alert alert-danger alert-sm" role="alert">Ingrese un CUIT</div>';
+            estadoBusqueda.innerHTML = '<div class="alert alert-danger alert-sm shadow-sm" role="alert">Ingrese un CUIT</div>';
             return;
         }
 
-        estadoBusqueda.innerHTML = '<div class="alert alert-info alert-sm" role="alert">Buscando...</div>';
+        estadoBusqueda.innerHTML = '<div class="alert alert-info alert-sm shadow-sm" role="alert">Buscando...</div>';
 
         fetch('{% url "buscar_proveedor_api" %}', {
             method: 'POST',
@@ -202,11 +500,9 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.encontrado) {
-                // Proveedor encontrado
                 proveedorActual = data;
                 estadoBusqueda.innerHTML = '';
                 
-                // Mostrar datos del proveedor encontrado
                 document.getElementById('nombre_prov_encontrado').textContent = data.nombre;
                 document.getElementById('cuit_encontrado').textContent = data.cuit;
                 document.getElementById('telefono_encontrado').textContent = data.telefono || 'No disponible';
@@ -215,44 +511,37 @@ document.addEventListener('DOMContentLoaded', function() {
                 proveedorEncontrado.style.display = 'block';
                 formularioNuevoProveedor.style.display = 'none';
                 
-                // Llenar datos ocultos del formulario
                 document.getElementById('cuit_hidden').value = data.cuit;
                 document.getElementById('nombre_prov_hidden').value = data.nombre;
                 document.getElementById('telefono_prov_hidden').value = data.telefono || '';
                 
-                // Mostrar formulario de compra
                 formularioCompra.style.display = 'block';
             } else {
-                // Proveedor no encontrado
                 proveedorActual = null;
                 estadoBusqueda.innerHTML = '';
                 
                 proveedorEncontrado.style.display = 'none';
                 formularioNuevoProveedor.style.display = 'block';
                 
-                // Limpiar campos del nuevo proveedor
                 document.getElementById('nombre_prov_nuevo').value = '';
                 document.getElementById('telefono_prov_nuevo').value = '';
                 document.getElementById('email_prov_nuevo').value = '';
                 
-                // Mostrar formulario de compra
                 formularioCompra.style.display = 'block';
             }
         })
         .catch(error => {
-            console.error('Error:', error);
-            estadoBusqueda.innerHTML = '<div class="alert alert-danger alert-sm" role="alert">Error en la búsqueda</div>';
+            estadoBusqueda.innerHTML = '<div class="alert alert-danger alert-sm shadow-sm" role="alert">Error en la búsqueda</div>';
         });
     });
 
-    // Permitir buscar al presionar Enter
     cuitInput.addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {
+            e.preventDefault();
             btnBuscar.click();
         }
     });
 
-    // Actualizar campos ocultos cuando cambian los datos del nuevo proveedor
     document.getElementById('nombre_prov_nuevo').addEventListener('change', function() {
         document.getElementById('nombre_prov_hidden').value = this.value;
     });
@@ -261,18 +550,9 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('telefono_prov_hidden').value = this.value;
     });
 
-    // Llenar CUIT en el campo oculto
     cuitInput.addEventListener('change', function() {
         document.getElementById('cuit_hidden').value = this.value;
     });
 });
 </script>
-
-<style>
-.alert-sm {
-    padding: 0.5rem 0.75rem;
-    margin: 0;
-    font-size: 0.875rem;
-}
-</style>
 {% endblock %}

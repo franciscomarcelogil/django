@@ -1,216 +1,292 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="container mt-4">
-  <div class="card shadow-sm border-secondary">
-    <div class="card-header d-flex justify-content-between align-items-center bg-light">
-      <div>
-        <h5 class="mb-0 text-dark">Tarea #{{ tarea.id }}</h5>
-        <small class="text-muted">Amortiguador: {{ tarea.amortiguador.nroSerieamortiguador }}</small>
-      </div>
-      <div class="text-end">
-        <span class="badge bg-primary me-1">{{ tarea.tipoTarea|capfirst }}</span>
-        <span class="badge {% if tarea.estado == 'por reparar' %}bg-warning text-dark{% else %}bg-secondary{% endif %} me-1">{{ tarea.estado }}</span>
-        <span class="badge bg-info text-dark">Prioridad: {{ tarea.prioridad }}</span>
-      </div>
+<div class="container py-4">
+  
+  <!-- ENCABEZADO DE LA TAREA -->
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 pb-3 border-bottom">
+    <div>
+      <h3 class="mb-0 text-dark fw-bold"><i class="fas fa-tools text-secondary me-2"></i>Tarea #{{ tarea.id }}</h3>
+      <p class="text-muted mb-0 fs-5 mt-1">Amortiguador Serie: <strong>{{ tarea.amortiguador.nroSerieamortiguador }}</strong></p>
     </div>
-
-    <div class="card-body">
+    <div class="d-flex gap-2 mt-3 mt-md-0">
+      <span class="badge bg-light text-primary border border-primary px-3 py-2 fs-6 rounded-pill">
+        {{ tarea.tipoTarea|default:"Sin definir"|capfirst }}
+      </span>
+      <span class="badge bg-light text-dark border px-3 py-2 fs-6 rounded-pill">
+        Prioridad: {{ tarea.prioridad }}
+      </span>
+      <span class="badge {% if tarea.estado == 'por reparar' %}bg-warning text-dark{% elif tarea.estado == 'en reparacion' %}bg-info text-dark{% elif tarea.estado == 'terminada' %}bg-success{% else %}bg-secondary{% endif %} px-3 py-2 fs-6 rounded-pill">
+        {{ tarea.estado|upper }}
+      </span>
       
+    </div>
+  </div>
 
-      <h6 class="card-subtitle mb-3 text-uppercase fw-bold text-primary">Diagnóstico Técnico</h6>
+  <!-- SECCIÓN: DIAGNÓSTICO TÉCNICO -->
+  <div class="card shadow-sm border-0 rounded-3 mb-4">
+    <div class="card-header bg-white border-bottom-0 pt-4 pb-0 px-4 d-flex justify-content-between align-items-center">
+      <h5 class="fw-bold  mb-4"><i class="fas fa-clipboard-check me-2"></i>Diagnóstico Técnico</h5>
+      {% if tarea.estado == 'pendiente' %}
+        <a href="{% url 'crear_o_editar_observacion' tarea.id %}" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+          <i class="fas fa-edit"></i> {% if observacion %}Editar{% else %}Cargar{% endif %} Diagnóstico
+        </a>
+      {% endif %}
+    </div>
     
-      <div class="row mb-4">
-        <div class="col-12">
-          <div class="card h-100 border-start border-4 border-primary shadow-sm">
-            <div class="card-body">
+    <div class="card-body p-4">
+      {% if observacion %}
+        <div class="row g-4">
+          <!-- Datos de la Máquina -->
+          <div class="col-md-5">
+            <div class="p-3 bg-light rounded-3 h-100 border">
+              <p class="mb-1 text-muted small text-uppercase fw-bold">Sugerencia Operativa</p>
+              <p class="fs-5 fw-bold mb-3">{{ observacion.sugerencia_tecnica|upper }}</p>
               
-              <div class="d-flex justify-content-between align-items-start mb-3 border-bottom pb-2">
-                <div>
-                  <strong>Reporte de Revisión</strong>
-                  <div class="small text-muted">Información física y de diagrama</div>
-                </div>
-                {% if tarea.estado == 'pendiente' %}
-                <a href="{% url 'crear_o_editar_observacion' tarea.id %}" class="btn btn-sm btn-primary">
-                  {% if observacion %}Editar Diagnóstico{% else %}Cargar Diagnóstico{% endif %}
-                </a>
-                {% endif %}
-              </div>
-
-              {% if observacion %}
-                <div class="row mb-3">
-                    <div class="col-md-6 border-end">
-                        <p class="mb-1"><strong>Sugerencia Operativa:</strong> 
-                            <span class="badge bg-dark">{{ observacion.sugerencia_tecnica|upper }}</span>
-                        </p>
-                        <p class="mb-0 mt-2"><strong>Valor en Máquina (Diagrama):</strong> {{ observacion.valor_diagrama }} 
-                            <br><small class="text-muted">(Rango Ficha: {{ tarea.amortiguador.fichaamortiguador.valor_minimo }} - {{ tarea.amortiguador.fichaamortiguador.valor_maximo }})</small>
-                        </p>
-                        {% if observacion.valor_diagrama >= tarea.amortiguador.fichaamortiguador.valor_minimo and observacion.valor_diagrama <= tarea.amortiguador.fichaamortiguador.valor_maximo %}
-                            <span class="badge bg-success mt-1">Diagrama Aceptable</span>
-                        {% else %}
-                            <span class="badge bg-danger mt-1">Diagrama Fuera de Rango</span>
-                        {% endif %}
-                    </div>
-
-
-                    <div class="col-md-6">
-                        <h6 class="text-muted mb-1"><i class="fas fa-user-edit"></i> Comentarios del Operario</h6>
-                        <p class="small mb-0 text-dark">{{ observacion.detalle_operario|default:'Sin comentarios adicionales.'|linebreaks }}</p>
-                    </div>
-                </div>
-
-
-                <div class="bg-light border rounded p-3 mt-3">
-                    <h6 class="text-primary mb-2"><i class="fas fa-robot"></i> Comentario automatico </h6>
-                    <div class="small text-dark font-monospace" style="white-space: pre-wrap;">{{ observacion.detalle_autogenerado }}</div>
-                </div>
-
-                <div class="small text-muted mt-3 pt-2 border-top">
-                  Fecha de registro: {{ observacion.fecha }}
-                </div>
+              <p class="mb-1 text-muted small text-uppercase fw-bold">Valor Inicial en Máquina</p>
+              <p class="fs-5 mb-1">{{ observacion.valor_diagrama }} N</p>
+              <small class="text-muted d-block mb-2">Rango: {{ tarea.amortiguador.fichaamortiguador.valor_minimo }} N - {{ tarea.amortiguador.fichaamortiguador.valor_maximo }} N</small>
+              
+              {% if observacion.valor_diagrama >= tarea.amortiguador.fichaamortiguador.valor_minimo and observacion.valor_diagrama <= tarea.amortiguador.fichaamortiguador.valor_maximo %}
+                <span class="badge bg-success"><i class="fas fa-check"></i> Inicial Aceptable</span>
               {% else %}
-                <div class="alert alert-light mb-0 py-4 text-center text-muted">
-                  <i class="fas fa-clipboard-list mb-2" style="font-size: 24px;"></i><br>
-                  Aún no se ha cargado el diagnóstico técnico para este amortiguador.
-                </div>
+                <span class="badge bg-danger"><i class="fas fa-times"></i> Inicial Fuera de Rango</span>
+              {% endif %}
+
+              <!-- VALOR FINAL SI EXISTE -->
+              {% if observacion.valor_diagrama_final %}
+              <hr class="my-3 border-secondary border-opacity-25">
+              <p class="mb-1 text-success small text-uppercase fw-bold">Valor Final (Post-Reparación)</p>
+              <p class="fs-5 mb-0 text-success fw-bold"><i class="fas fa-check-double me-1"></i> {{ observacion.valor_diagrama_final }} N</p>
               {% endif %}
             </div>
           </div>
+
+          <!-- Comentarios -->
+          <div class="col-md-7">
+            <div class="mb-3">
+              <p class="mb-1 text-muted small text-uppercase fw-bold"><i class="fas fa-comment-dots me-1"></i> Comentarios del Operario</p>
+              <p class="mb-0 text-dark">{{ observacion.detalle_operario|default:'<em class="text-muted">Sin comentarios adicionales.</em>'|safe|linebreaks }}</p>
+            </div>
+            
+            <div class="mt-4">
+              
+                <i class="fas fa-history"></i> Ver Bitácora del Sistema
+              
+              
+                <div class="card card-body bg-light border-0 small font-monospace text-muted py-2 px-3">
+                  {{ observacion.detalle_autogenerado|linebreaks }}
+                  <div class="mt-2 pt-2 border-top">Registrado: {{ observacion.fecha|date:"d/m/Y H:i" }}</div>
+                
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
 
-
-      <div class="mb-4 d-flex flex-wrap gap-2">
+        <!-- Botón de Confirmación para enviar a revisión -->
         {% if tarea.estado == 'pendiente' %}
-          {% if observacion %}
-          <form action="" method="post" class="m-0 w-100 p-3 bg-light border rounded d-flex justify-content-between align-items-center">
+        <div class="mt-4 pt-3 border-top d-flex justify-content-end align-items-center gap-3">
+          <span class="text-muted small">¿El diagnóstico está listo para la revisión del encargado?</span>
+          <form action="" method="post" class="m-0">
             {% csrf_token %}
-            <span class="text-muted small">Asegúrate de que el diagnóstico esté correcto antes de enviar al encargado.</span>
-            <button type="submit" name="accion" value="terminarobservacioncontrol" class="btn btn-success">
-              <i class="fas fa-check-circle"></i> Finalizar y Enviar Revisión
+            <button type="submit" name="accion" value="terminarobservacioncontrol" class="btn btn-primary px-4 rounded-pill">
+              <i class="fas fa-paper-plane me-1"></i> Enviar a Revisión
             </button>
           </form>
-          {% endif %}
+        </div>
         {% endif %}
-      </div>
 
-      {% if materialxtarea and tarea.estado == 'por reparar' or materialxtarea and tarea.estado == 'en reparacion' %}
-      <div class="card mb-3 border-warning">
-        <div class="card-header bg-warning text-dark fw-bold">
-          Gestión de Materiales de la Tarea
+      {% else %}
+        <div class="text-center py-5 text-muted">
+          <i class="fas fa-file-signature fa-3x mb-3 text-light"></i>
+          <h5>No hay diagnóstico registrado</h5>
+          <p class="mb-0">Realiza la inspección y carga el diagnóstico para continuar.</p>
         </div>
-        <div class="card-body">
-          <div id="tabla-mats">
-            {% if tarea.estado == 'en reparacion' %}
-            <form action="" method="post">
-              {% csrf_token %}
-            {% endif %}
-
-            <div class="table-responsive">
-              <table class="table table-sm table-bordered align-middle">
-                <thead class="table-light">
-                  <tr>
-                    <th>Material</th>
-                    <th class="text-center">Cantidad Reservada (Máx)</th>
-                    {% if tarea.estado == 'en reparacion' %}
-                    <th style="width: 200px;">Consumo Real</th>
-                    {% endif %}
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for mat in materialxtarea %}
-                  <tr>
-                    <td>{{ mat.material.tipo }}</td>
-                    <td class="text-center fw-bold">{{ mat.stockrecomendado }}</td>
-                    {% if tarea.estado == 'en reparacion' %}
-                    <td>
-                      <input type="number" min="0" name="stockusado_{{ mat.id }}" value="{{ mat.stockrecomendado }}" class="form-control form-control-sm" required/>
-                    </td>
-                    {% endif %}
-                  </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            </div>
-
-           
-            {% if tarea.estado == 'por reparar' %}
-           
-            {% if materiales_faltantes %}
-            <div class="alert alert-warning alert-dismissible fade show mt-3" role="alert">
-              <strong><i class="fas fa-exclamation-triangle"></i> Stock Insuficiente</strong>
-              <ul class="mb-0 mt-2 small">
-                {% for mat_falt in materiales_faltantes %}
-                <li><strong>{{ mat_falt.material }}:</strong> necesitas {{ mat_falt.falta }} más (disponible: {{ mat_falt.disponible }}/{{ mat_falt.requerido }})</li>
-                {% endfor %}
-              </ul>
-              <p class="text-muted mb-0 mt-2 small"><i class="fas fa-info-circle"></i> El botón está deshabilitado hasta que el encargado complete el stock.</p>
-              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-            {% endif %}
-
-            <form action="" method="post" class="mt-3 d-flex justify-content-end">
-              {% csrf_token %}
-              <button 
-                type="submit" 
-                name="accion" 
-                value="reservar_materiales" 
-                class="btn btn-warning"
-                {% if not puede_reservar %}disabled title="Completa el stock faltante para poder continuar"{% endif %}
-              >
-                Confirmar Retiro de Materiales
-              </button>
-            </form>
-            {% endif %}
-
-            {% if tarea.estado == 'en reparacion' %}
-              <div class="d-flex justify-content-between align-items-center mt-3 border-top pt-3">
-                <small class="text-danger">* Registra exactamente el stock utilizado antes de finalizar.</small>
-                <button type="submit" name="accion" value="finalizartarea" class="btn btn-success">Terminar Reparación</button>
-              </div>
-            </form>
-            {% endif %}
-          </div>
-        </div>
-      </div>
       {% endif %}
-      {% if tarea.estado == 'terminada' and materialxtarea %}
-      <div class="card mb-3 border-success">
-        <div class="card-header bg-success text-white fw-bold">
-          Detalles de Materiales Utilizados
-        </div>
-        <div class="card-body">
-          
+    </div>
+  </div>
 
-          <div class="table-responsive">
-            <table class="table table-sm table-bordered align-middle">
-              <thead class="table-light">
-                <tr>
-                  <th>Material</th>
-                  <th>Cantidad Reservada</th>
-                  <th>Cantidad Usada Real</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for mat in materialxtarea %}
-                <tr>
-                  <td>{{ mat.material.tipo }}</td>
-                  <td class="text-center fw-bold">{{ mat.stockrecomendado }}</td>
-                  <td class="text-center fw-bold">{{ mat.stockusado|default:'-' }}</td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
+  <!-- SECCIÓN: GESTIÓN DE MATERIALES -->
+  {% if materialxtarea and tarea.estado in 'por reparar, en reparacion' %}
+  <div class="card shadow-sm border-0 rounded-3 mb-4">
+    <div class="card-header bg-white border-bottom-0 pt-4 pb-0 px-4">
+      <h5 class="fw-bold text-dark mb-4"><i class="fas fa-boxes me-2 text-warning"></i>Gestión de Materiales</h5>
+    </div>
+    
+    <div class="card-body p-4">
+      {% if tarea.estado == 'en reparacion' %}
+      <form action="" method="post">
+        {% csrf_token %}
+      {% endif %}
+
+      <div class="table-responsive border rounded-3">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light text-muted small text-uppercase">
+            <tr>
+              <th class="ps-3 py-3">Material</th>
+              <th class="text-center py-3">Reserva Autorizada</th>
+              {% if tarea.estado == 'en reparacion' %}
+              <th class="pe-3 py-3" style="width: 250px;">Consumo Real</th>
+              {% endif %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for mat in materialxtarea %}
+            <tr>
+              <td class="ps-3 py-3 fw-medium">{{ mat.material.tipo }}</td>
+              <td class="text-center py-3"><span class="badge bg-light text-dark border px-2 py-1 fs-6">{{ mat.stockrecomendado }} {{ mat.material.unidad }}</span></td>
+              
+              {% if tarea.estado == 'en reparacion' %}
+              <td class="pe-3 py-3">
+                <div class="input-group input-group-sm">
+                  <input type="number" min="0" name="stockusado_{{ mat.id }}" value="{{ mat.stockrecomendado }}" class="form-control text-center" required/>
+                  <span class="input-group-text bg-light text-muted">{{ mat.material.unidad }}</span>
+                </div>
+              </td>
+              {% endif %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ESTADO: POR REPARAR (Botón de Reserva) -->
+      {% if tarea.estado == 'por reparar' %}
+        {% if materiales_faltantes %}
+        <div class="alert alert-danger border-danger border-opacity-25 mt-4 d-flex align-items-center" role="alert">
+          <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+          <div>
+            <strong>Stock Insuficiente.</strong> No puedes iniciar la reparación hasta que el encargado reponga los insumos:
+            <ul class="mb-0 mt-1 small">
+              {% for mat_falt in materiales_faltantes %}
+              <li>{{ mat_falt.material }}: Faltan {{ mat_falt.falta }} (Disponible: {{ mat_falt.disponible }})</li>
+              {% endfor %}
+            </ul>
           </div>
-
         </div>
         {% endif %}
 
-      <div class="mt-4">
-        <a href="{% url 'paneltareas' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> Volver a Tareas</a>
+        <form action="" method="post" class="mt-4 text-end">
+          {% csrf_token %}
+          <button type="submit" name="accion" value="reservar_materiales" class="btn btn-warning px-4 rounded-pill fw-bold" {% if not puede_reservar %}disabled{% endif %}>
+            <i class="fas fa-hand-holding-box me-1"></i> Iniciar Reparación y Retirar Materiales
+          </button>
+        </form>
+      {% endif %}
+
+      <!-- ESTADO: EN REPARACIÓN (Formulario Final y Diagrama) -->
+      {% if tarea.estado == 'en reparacion' %}
+        <div class="mt-4 p-4 bg-light rounded-3 border border-success border-opacity-25">
+          <h6 class="text-success fw-bold mb-3"><i class="fas fa-flag-checkered me-1"></i> Control de Calidad Final</h6>
+          <div class="row align-items-center">
+            
+            <div class="col-md-6">
+              <label for="valor_diagrama_final" class="form-label text-dark fw-medium small mb-1">Resultado de Máquina (Newtons) *</label>
+              <div class="input-group">
+                <span class="input-group-text bg-white"><i class="fas fa-tachometer-alt text-muted"></i></span>
+                <!-- Aquí pasamos los data-min y data-max para el JS -->
+                <input type="number" step="0.01" class="form-control form-control-lg" id="valor_diagrama_final" name="valor_diagrama_final" 
+                       data-min="{{ tarea.amortiguador.fichaamortiguador.valor_minimo|stringformat:'f' }}" 
+                       data-max="{{ tarea.amortiguador.fichaamortiguador.valor_maximo|stringformat:'f' }}" 
+                       required placeholder="Ej: 1500.50">
+                <span class="input-group-text bg-white fw-bold">N</span>
+              </div>
+              <div class="form-text small">
+                Rango exigido: <strong class="text-dark">{{ tarea.amortiguador.fichaamortiguador.valor_minimo }} N</strong> - <strong class="text-dark">{{ tarea.amortiguador.fichaamortiguador.valor_maximo }} N</strong>
+              </div>
+              <div id="diagrama-feedback" class="text-danger small mt-1 d-none fw-medium">
+                <i class="fas fa-times-circle"></i> El valor debe estar dentro del rango para poder finalizar.
+              </div>
+            </div>
+
+            <div class="col-md-6 text-md-end mt-3 mt-md-0">
+              <button type="submit" id="btn-finalizar-tarea" name="accion" value="finalizartarea" class="btn btn-success btn-lg px-4 rounded-pill shadow-sm" disabled>
+                <i class="fas fa-check"></i> Finalizar Tarea
+              </button>
+            </div>
+            
+          </div>
+        </div>
+      </form>
+      
+      <!-- Script de Validación Elegante -->
+      <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const inputDiagrama = document.getElementById('valor_diagrama_final');
+            const btnFinalizar = document.getElementById('btn-finalizar-tarea');
+            const feedback = document.getElementById('diagrama-feedback');
+
+            if (inputDiagrama && btnFinalizar) {
+                // Leemos del data-attribute (usamos replace por si Django mandó comas)
+                const minVal = parseFloat(inputDiagrama.dataset.min.replace(',', '.'));
+                const maxVal = parseFloat(inputDiagrama.dataset.max.replace(',', '.'));
+
+                inputDiagrama.addEventListener('input', function() {
+                    const val = parseFloat(this.value.replace(',', '.'));
+                    
+                    if (!isNaN(val) && val >= minVal && val <= maxVal) {
+                        btnFinalizar.disabled = false;
+                        inputDiagrama.classList.remove('is-invalid', 'border-danger');
+                        inputDiagrama.classList.add('is-valid', 'border-success', 'border-2');
+                        feedback.classList.add('d-none');
+                    } else {
+                        btnFinalizar.disabled = true;
+                        inputDiagrama.classList.remove('is-valid', 'border-success', 'border-2');
+                        
+                        if (this.value !== '') {
+                            inputDiagrama.classList.add('is-invalid', 'border-danger');
+                            feedback.classList.remove('d-none');
+                        } else {
+                            inputDiagrama.classList.remove('is-invalid', 'border-danger');
+                            feedback.classList.add('d-none');
+                        }
+                    }
+                });
+            }
+        });
+      </script>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- SECCIÓN: TAREA TERMINADA (RESUMEN) -->
+  {% if tarea.estado == 'terminada' and materialxtarea %}
+  <div class="card shadow-sm border-0 rounded-3 mb-4">
+    <div class="card-header bg-success bg-opacity-10 border-success border-opacity-25 pt-3 pb-2 px-4">
+      <h6 class="fw-bold text-success mb-0"><i class="fas fa-clipboard-check me-2"></i>Resumen de Materiales Utilizados</h6>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-borderless align-middle mb-0">
+          <thead class="text-muted small text-uppercase border-bottom">
+            <tr>
+              <th class="ps-4 py-3">Material</th>
+              <th class="text-center py-3">Reserva Inicial</th>
+              <th class="pe-4 text-end py-3">Consumo Final</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for mat in materialxtarea %}
+            <tr class="border-bottom">
+              <td class="ps-4 py-3 text-dark fw-medium">{{ mat.material.tipo }}</td>
+              <td class="text-center py-3 text-muted">{{ mat.stockrecomendado }} {{ mat.material.unidad }}</td>
+              <td class="pe-4 text-end py-3 fw-bold text-success">{{ mat.stockusado|default:'-' }} {{ mat.material.unidad }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
+  {% endif %}
+
+  <!-- BOTÓN VOLVER -->
+  <div class="mt-4">
+    <a href="{% url 'paneltareas' %}" class="btn btn-light border shadow-sm rounded-pill px-4">
+      <i class="fas fa-arrow-left me-2 text-muted"></i> Volver a mi Bandeja
+    </a>
+  </div>
+
 </div>
 {% endblock %}

@@ -12,13 +12,14 @@ class Pedido(models.Model):
   fechaingreso = models.DateField(auto_now_add=True)
   horaingreso = models.TimeField(auto_now_add=True)
   estado = models.CharField(max_length=100)
-  fechaSalidaEstimada = models.DateField(blank=True, null=True)
-  fechaSalidaReal = models.DateField(blank=True, null=True)
-  fecha_finalizacion = models.DateField(blank=True, null=True, help_text="Fecha cuando el pedido cambió a estado terminado")
+  fechaSalidaEstimada = models.DateTimeField(blank=True, null=True)
+  fechaSalidaReal = models.DateTimeField(blank=True, null=True)
+  fecha_finalizacion = models.DateTimeField(blank=True, null=True, help_text="Fecha cuando el pedido cambió a estado terminado")
   cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE)
   total_estimado = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
   cancelado = models.BooleanField(default=False)
   fecha_ultimo_cambio = models.DateTimeField(auto_now=True)
+  fecha_presupuesto = models.DateTimeField(null=True, blank=True)
 
 
 class Comprobante(models.Model):

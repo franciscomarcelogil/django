@@ -21,7 +21,7 @@ class HistoricoPrecioMaterial(models.Model):
   """
   material = models.ForeignKey(Material, on_delete=models.CASCADE, related_name='historico_precios')
   precio_venta = models.DecimalField(max_digits=10, decimal_places=2)
-  fecha_de_vigencia = models.DateField(default=timezone.now, help_text="Fecha desde la cual este precio es válido")
+  fecha_de_vigencia = models.DateTimeField(default=timezone.now, help_text="Fecha desde la cual este precio es válido")
   
   class Meta:
     ordering = ['-fecha_de_vigencia']

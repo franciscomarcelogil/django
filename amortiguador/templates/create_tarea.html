@@ -2,7 +2,6 @@
 
 {% block content %}
 <div class="container mt-4">
-  <!-- HEADER -->
   <div class="d-flex justify-content-between align-items-start mb-4">
     <div>
       <h3 class="mb-0 fw-bold">Crear Nueva Tarea</h3>
@@ -13,17 +12,27 @@
     </a>
   </div>
 
-  <!-- PASO 1: BÚSQUEDA DE AMORTIGUADOR (Se oculta si ya se buscó) -->
+  {% if error_backend %}
+  <div class="alert alert-danger shadow-sm border-danger border-2 d-flex align-items-center mb-4" role="alert">
+    <i class="bi bi-x-octagon-fill fs-3 me-3"></i>
+    <div>
+      <h5 class="alert-heading mb-1 fw-bold">Operación Bloqueada</h5>
+      <p class="mb-0">{{ error_backend }}</p>
+    </div>
+  </div>
+  {% endif %}
+
   {% if not amortiguador and not no_amortiguador %}
   <div class="card shadow-sm mb-4 border-0">
     <div class="card-header bg-secondary text-white fw-bold">
       Paso 1: Buscar Amortiguador
     </div>
     <div class="card-body p-4">
-      <form method="post" class="mb-0">
+      <form method="post" class="mb-0" id="form-buscar">
         {% csrf_token %}
         <input type="hidden" name="accion" value="buscar" />
         <div class="row g-3 justify-content-center">
+          
           <div class="col-md-8">
             <label for="nroSerieamortiguador" class="form-label fw-bold text-center w-100 mb-3">Ingrese el Número de Serie físico del amortiguador</label>
             <div class="input-group input-group-lg">
@@ -37,16 +46,20 @@
                 required
                 autofocus
               />
-              <button type="submit" class="btn btn-primary px-4 fw-bold">Buscar</button>
+              <button type="submit" id="btn-buscar-amortiguador" class="btn btn-primary px-4 fw-bold">Buscar</button>
+            </div>
+            
+            <div id="error-duplicado" class="text-danger mt-2 text-center fw-bold d-none">
+              <i class="bi bi-exclamation-triangle-fill"></i> ¡Cuidado! Este amortiguador ya fue ingresado en una tarea de este pedido.
             </div>
           </div>
+
         </div>
       </form>
     </div>
   </div>
   {% endif %}
 
-  <!-- PASO 2A: SI EL AMORTIGUADOR EXISTE -->
   {% if amortiguador %}
   <form method="post" class="mb-4">
     {% csrf_token %}
@@ -59,7 +72,6 @@
       </div>
       <div class="card-body p-4">
         
-        <!-- Info del amortiguador -->
         <div class="row mb-4 bg-light p-3 rounded">
           <div class="col-md-6">
             <h6 class="text-muted mb-1">Número de Serie</h6>
@@ -71,7 +83,6 @@
           </div>
         </div>
 
-        <!-- Prioridad -->
         <div class="mb-4">
           <label for="prioridad" class="form-label fw-bold"><i class="bi bi-flag"></i> Prioridad de la tarea</label>
           <select name="prioridad" id="prioridad" class="form-select form-select-lg" style="max-width: 300px;" required>
@@ -81,15 +92,12 @@
           </select>
         </div>
 
-        <!-- OPERARIOS EN FORMATO CARDS -->
         <div class="section-divider mb-4">
           <h6 class="fw-bold text-dark mb-3"><i class="bi bi-people"></i> Asignar Operario (Seleccione uno)</h6>
           <div class="row g-3">
             {% for operario in operarios %}
             <div class="col-md-6 col-lg-4">
-              <!-- Radio button oculto -->
               <input type="radio" name="operario" id="op_exist_{{ operario.id }}" value="{{ operario.id }}" class="d-none operator-radio" required>
-              <!-- Label con forma de tarjeta -->
               <label class="card operator-card h-100 border-2" for="op_exist_{{ operario.id }}">
                 <div class="card-body">
                   <div class="fw-bold fs-5 text-dark">{{ operario.nombre }} {{ operario.apellido }}</div>
@@ -116,7 +124,6 @@
   </form>
   {% endif %}
 
-  <!-- PASO 2B: SI EL AMORTIGUADOR NO EXISTE (CREAR NUEVO) -->
   {% if no_amortiguador %}
   <form method="post" class="mb-4">
     {% csrf_token %}
@@ -132,7 +139,6 @@
           El amortiguador serie <strong>{{ nroSerieamortiguador }}</strong> es nuevo. Complete sus datos de fabricación para ingresarlo al sistema.
         </div>
         
-        <!-- DATOS DEL AMORTIGUADOR -->
         <div class="section-divider mb-4">
           <h6 class="fw-bold text-dark mb-3"><i class="bi bi-gear"></i> Datos del Amortiguador</h6>
           <div class="row g-3">
@@ -161,7 +167,6 @@
           </div>
         </div>
 
-        <!-- Prioridad -->
         <div class="mb-4 ps-4">
           <label for="prioridad_nuevo" class="form-label fw-bold"><i class="bi bi-flag"></i> Prioridad de la tarea</label>
           <select name="prioridad" id="prioridad_nuevo" class="form-select form-select-lg" style="max-width: 300px;" required>
@@ -171,15 +176,12 @@
           </select>
         </div>
 
-        <!-- OPERARIOS EN FORMATO CARDS -->
         <div class="section-divider mb-4">
           <h6 class="fw-bold text-dark mb-3"><i class="bi bi-people"></i> Asignar Operario (Seleccione uno)</h6>
           <div class="row g-3">
             {% for operario in operarios %}
             <div class="col-md-6 col-lg-4">
-              <!-- Radio button oculto -->
               <input type="radio" name="operario" id="op_nuevo_{{ operario.id }}" value="{{ operario.id }}" class="d-none operator-radio" required>
-              <!-- Label con forma de tarjeta -->
               <label class="card operator-card h-100 border-2" for="op_nuevo_{{ operario.id }}">
                 <div class="card-body">
                   <div class="fw-bold fs-5 text-dark">{{ operario.nombre }} {{ operario.apellido }}</div>
@@ -215,7 +217,6 @@
     border-left: 5px solid #0d6efd;
   }
   
-  /* ESTILOS PARA LAS TARJETAS SELECTORAS DE OPERARIO */
   .operator-card {
     cursor: pointer;
     transition: all 0.2s ease-in-out;
@@ -229,7 +230,6 @@
     border-color: #adb5bd;
   }
   
-  /* Cuando el radio oculto está "checked", la tarjeta hermana cambia su estilo */
   .operator-radio:checked + .operator-card {
     border-color: #0d6efd !important;
     background-color: #f0f7ff;
@@ -237,9 +237,69 @@
   }
 </style>
 
+{{ series_en_pedido|json_script:"series-data" }}
+
 <script>
-// El script de búsqueda de fichas que ya tenías, mantenido intacto
 document.addEventListener('DOMContentLoaded', function() {
+  
+  /* =========================================
+     1. LÓGICA DE VALIDACIÓN DE DUPLICADOS
+     ========================================= */
+  let seriesEnPedido = [];
+  try {
+      seriesEnPedido = JSON.parse(document.getElementById('series-data').textContent);
+  } catch (e) {
+      console.warn("No se encontraron series previas en el pedido.");
+  }
+  
+  const inputSerie = document.getElementById('nroSerieamortiguador');
+  const btnBuscar = document.getElementById('btn-buscar-amortiguador');
+  const errorMsg = document.getElementById('error-duplicado');
+  const formBuscar = document.getElementById('form-buscar');
+  let esDuplicado = false;
+
+  if (inputSerie && btnBuscar) {
+      const textoOriginalBoton = btnBuscar.innerHTML;
+
+      inputSerie.addEventListener('input', function() {
+          const valorIngresado = this.value.trim().toUpperCase();
+          const seriesMayusculas = seriesEnPedido.map(s => String(s).toUpperCase());
+
+          if (valorIngresado !== '' && seriesMayusculas.includes(valorIngresado)) {
+              esDuplicado = true;
+              btnBuscar.disabled = true;
+              btnBuscar.classList.remove('btn-primary');
+              btnBuscar.classList.add('btn-danger');
+              btnBuscar.innerHTML = '<i class="bi bi-x-circle"></i> Ya en pedido';
+              
+              inputSerie.classList.add('is-invalid');
+              errorMsg.classList.remove('d-none');
+          } else {
+              esDuplicado = false;
+              btnBuscar.disabled = false;
+              btnBuscar.classList.remove('btn-danger');
+              btnBuscar.classList.add('btn-primary');
+              btnBuscar.innerHTML = textoOriginalBoton;
+              
+              inputSerie.classList.remove('is-invalid');
+              errorMsg.classList.add('d-none');
+          }
+      });
+
+      // Evita que mande el form si aprieta ENTER y está duplicado
+      if (formBuscar) {
+          formBuscar.addEventListener('submit', function(e) {
+              if (esDuplicado) {
+                  e.preventDefault(); 
+                  inputSerie.focus(); 
+              }
+          });
+      }
+  }
+
+  /* =========================================
+     2. LÓGICA DE BÚSQUEDA DE FICHA TÉCNICA
+     ========================================= */
   const fichas = [
     {% for ficha in fichas %}
     {
@@ -255,55 +315,54 @@ document.addEventListener('DOMContentLoaded', function() {
   const fichaSeleccionada = document.getElementById('ficha_seleccionada');
   const fichaHidden = document.getElementById('ficha_amortiguador');
 
-  if (!fichaInput) return;
+  if (fichaInput) {
+      function mostrarOpciones(texto = '') {
+        fichaLista.innerHTML = '';
+        const searchText = texto.toLowerCase();
+        const resultados = fichas.filter(ficha => 
+          ficha.nombre.toLowerCase().includes(searchText) || 
+          ficha.serie.toLowerCase().includes(searchText)
+        );
+        
+        if (resultados.length === 0 && texto.length > 0) {
+          fichaLista.innerHTML = '<li class="list-group-item text-muted">No hay fichas que coincidan</li>';
+          fichaLista.style.display = 'block';
+          return;
+        }
+        
+        if (resultados.length === 0 && texto.length === 0) {
+          fichaLista.style.display = 'none';
+          return;
+        }
+        
+        resultados.forEach(ficha => {
+          const li = document.createElement('li');
+          li.className = 'list-group-item list-group-item-action cursor-pointer';
+          li.style.cursor = 'pointer';
+          li.innerHTML = `<strong>[${ficha.serie}]</strong> ${ficha.nombre}`;
+          
+          li.addEventListener('click', function() {
+            fichaInput.value = `[${ficha.serie}] ${ficha.nombre}`;
+            fichaHidden.value = ficha.id;
+            
+            fichaSeleccionada.querySelector('span').textContent = ficha.nombre;
+            fichaSeleccionada.classList.remove('d-none');
+            
+            fichaLista.style.display = 'none';
+          });
+          fichaLista.appendChild(li);
+        });
+        fichaLista.style.display = 'block';
+      }
 
-  function mostrarOpciones(texto = '') {
-    fichaLista.innerHTML = '';
-    const searchText = texto.toLowerCase();
-    const resultados = fichas.filter(ficha => 
-      ficha.nombre.toLowerCase().includes(searchText) || 
-      ficha.serie.toLowerCase().includes(searchText)
-    );
-    
-    if (resultados.length === 0 && texto.length > 0) {
-      fichaLista.innerHTML = '<li class="list-group-item text-muted">No hay fichas que coincidan</li>';
-      fichaLista.style.display = 'block';
-      return;
-    }
-    
-    if (resultados.length === 0 && texto.length === 0) {
-      fichaLista.style.display = 'none';
-      return;
-    }
-    
-    resultados.forEach(ficha => {
-      const li = document.createElement('li');
-      li.className = 'list-group-item list-group-item-action cursor-pointer';
-      li.style.cursor = 'pointer';
-      li.innerHTML = `<strong>[${ficha.serie}]</strong> ${ficha.nombre}`;
-      
-      li.addEventListener('click', function() {
-        fichaInput.value = `[${ficha.serie}] ${ficha.nombre}`;
-        fichaHidden.value = ficha.id;
-        
-        // Muestra el mensaje de éxito debajo del input
-        fichaSeleccionada.querySelector('span').textContent = ficha.nombre;
-        fichaSeleccionada.classList.remove('d-none');
-        
-        fichaLista.style.display = 'none';
+      fichaInput.addEventListener('focus', function() { mostrarOpciones(this.value); });
+      fichaInput.addEventListener('input', function() { mostrarOpciones(this.value); });
+      document.addEventListener('click', function(e) {
+        if (e.target !== fichaInput && e.target !== fichaLista && !fichaLista.contains(e.target)) {
+          fichaLista.style.display = 'none';
+        }
       });
-      fichaLista.appendChild(li);
-    });
-    fichaLista.style.display = 'block';
   }
-
-  fichaInput.addEventListener('focus', function() { mostrarOpciones(this.value); });
-  fichaInput.addEventListener('input', function() { mostrarOpciones(this.value); });
-  document.addEventListener('click', function(e) {
-    if (e.target !== fichaInput && e.target !== fichaLista && !fichaLista.contains(e.target)) {
-      fichaLista.style.display = 'none';
-    }
-  });
 });
 </script>
 {% endblock %}

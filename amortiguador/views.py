@@ -1,6 +1,7 @@
 import datetime
 import json
 from django.db import transaction
+from django.db.models.functions import Coalesce
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse, HttpResponseForbidden, JsonResponse, request
 from django.contrib.auth.decorators import login_required
@@ -21,6 +22,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.lib import colors
 from datetime import timedelta
+import json
 
 
 
@@ -40,7 +42,7 @@ def _guardar_historico_precios_pedido(pedido, concepto='comprobante_emitido'):
  
             HistoricoPrecioMaterial.objects.get_or_create(
                 material=material,
-                fecha_de_vigencia=timezone.now().date(),
+                fecha_de_vigencia=timezone.now(),
                 defaults={'precio_venta': material.precio_venta}
             )
 
@@ -167,22 +169,28 @@ def control_inventario(request):
 def detalle_material(request, material_id):
     material = get_object_or_404(Material, id=material_id)
     historial_compras = Compra.objects.filter(material=material).order_by('-fecha_compra')
-    historico_precios = material.historico_precios.all()
+    historico_precios = material.historico_precios.all().order_by('-id')
+    
+    # NUEVA CONSULTA: Tareas terminadas que consumieron este material
+    tareas_material = MaterialTarea.objects.filter(
+        material=material,
+        tarea__estado='terminada'
+    ).select_related(
+        'tarea', 'tarea__pedido', 'tarea__amortiguador', 'tarea__operario'
+    ).order_by('-tarea__fecha_finalizacion', '-tarea__id')
 
     if request.method == 'POST':
         accion = request.POST.get('accion')
 
         if accion == 'editar_material':
- 
             material.stockMinimo = int(request.POST.get('stock_minimo', material.stockMinimo))
             nuevo_precio = Decimal(request.POST.get('precio_venta', material.precio_venta).replace(',', '.'))
             
-
             if nuevo_precio != material.precio_venta:
                 HistoricoPrecioMaterial.objects.create(
                     material=material,
                     precio_venta=nuevo_precio,
-                    fecha_de_vigencia=timezone.now().date()
+                    fecha_de_vigencia=timezone.now()
                 )
             
             material.precio_venta = nuevo_precio
@@ -191,10 +199,7 @@ def detalle_material(request, material_id):
             return redirect('detalle_material', material_id=material.id)
 
         elif accion == 'cargar_compra':
-          
             cuit_prov = request.POST.get('cuit_proveedor').strip()
-            
-     
             proveedor, created = Proveedor.objects.get_or_create(
                 cuit=cuit_prov,
                 defaults={
@@ -203,45 +208,70 @@ def detalle_material(request, material_id):
                 }
             )
 
-            cantidad = int(request.POST.get('cantidad', 0))
+            cantidad_comprada = int(request.POST.get('cantidad', 0))
             costo_unitario_nuevo = Decimal(request.POST.get('costo_unitario').replace(',', '.'))
 
             nueva_compra = Compra.objects.create(
                 material=material,
                 proveedor=proveedor,
-                cantidad=cantidad,
+                cantidad=cantidad_comprada,
                 costo_unitario=costo_unitario_nuevo
             )
 
-           
-            ultimas_dos = Compra.objects.filter(material=material).order_by('-fecha_compra')[:2]
-            
-            if len(ultimas_dos) == 2:
-         
-                promedio = (ultimas_dos[0].costo_unitario + ultimas_dos[1].costo_unitario) / Decimal('2.0')
-                material.costo_unidad = promedio
-            else:
-        
-                material.costo_unidad = costo_unitario_nuevo
+            # --- CÁLCULO DE NUEVO COSTO (PPP) ---
+            stock_actual = material.stockActual or 0
+            costo_actual = material.costo_unidad or Decimal('0.00')
 
-            # Actualizamos Stock
-            material.stockActual += cantidad
+            valor_inventario_actual = Decimal(stock_actual) * costo_actual
+            valor_nueva_compra = Decimal(cantidad_comprada) * costo_unitario_nuevo
+            nuevo_stock = stock_actual + cantidad_comprada
+
+            if nuevo_stock > 0:
+                nuevo_costo_ppp = (valor_inventario_actual + valor_nueva_compra) / Decimal(nuevo_stock)
+                material.costo_unidad = round(nuevo_costo_ppp, 2)
+            else:
+                material.costo_unidad = round(costo_unitario_nuevo, 2)
+
+            # --- CAPTURAR MARGEN VISUAL Y APLICAR ---
+            margen_str = request.POST.get('margen_aplicado', '0')
+            try:
+                margen_actual = Decimal(margen_str.replace(',', '.')) / Decimal('100.0')
+            except (ValueError, TypeError, AttributeError):
+                margen_actual = Decimal('0.00')
+
+            nuevo_precio_venta = round(material.costo_unidad * (Decimal('1.00') + margen_actual), 2)
+
+            # --- CREACIÓN FORZADA DEL HISTÓRICO Y AUTO-AJUSTE ---
+            HistoricoPrecioMaterial.objects.create(
+                material=material,
+                precio_venta=nuevo_precio_venta,
+                fecha_de_vigencia=timezone.now()
+            )
+            
+            material.precio_venta = nuevo_precio_venta
+            material.stockActual = nuevo_stock
             material.save()
 
             if created:
-                messages.success(request, f'Proveedor nuevo registrado (CUIT: {cuit_prov}) y compra cargada. El nuevo costo promedio es ${material.costo_unidad}')
+                messages.success(request, f'Proveedor registrado. Costo PPP: ${material.costo_unidad} | Nuevo Precio: ${material.precio_venta}')
             else:
-                messages.success(request, f'Compra cargada con éxito. El nuevo costo promedio es ${material.costo_unidad}')
+                messages.success(request, f'Compra cargada. Costo PPP: ${material.costo_unidad} | Nuevo Precio: ${material.precio_venta}')
 
-        return redirect('detalle_material', material_id=material.id)
+            return redirect('detalle_material', material_id=material.id)
+
+    # Cálculo del margen para mostrar cuando se carga la página
+    if material.costo_unidad and material.costo_unidad > 0:
+        margen_actual = ((material.precio_venta - material.costo_unidad) / material.costo_unidad) * 100
+    else:
+        margen_actual = Decimal('0.00')
 
     return render(request, 'detalle_material.html', {
         'material': material, 
         'historial_compras': historial_compras,
         'historico_precios': historico_precios,
+        'tareas_material': tareas_material,  # Se envía al contexto
+        'margen_actual': round(margen_actual, 2)
     })
-
-
 def buscar_proveedor_api(request):
     """Endpoint AJAX para buscar proveedor por CUIT"""
     if request.method != 'POST':
@@ -771,8 +801,10 @@ def sincronizar_estado_pedido(pedido):
     if pedido.estado != nuevo_estado:
         pedido.estado = nuevo_estado
         if nuevo_estado == 'terminado' and not pedido.fecha_finalizacion:
-            pedido.fecha_finalizacion = timezone.now().date()
-        pedido.save(update_fields=['estado', 'fecha_finalizacion'])
+            pedido.fecha_finalizacion = timezone.now()
+        if nuevo_estado == 'presupuestado' and not getattr(pedido, 'fecha_presupuesto', None):
+            pedido.fecha_presupuesto = timezone.now()
+        pedido.save(update_fields=['estado', 'fecha_finalizacion', 'fecha_presupuesto'])
         return True 
         
     return False
@@ -842,23 +874,27 @@ def _obtener_presupuesto_estimado(pedido):
     total_materiales = Decimal('0.00')
     total_mano_obra = Decimal('0.00')
 
-    for tarea in pedido.tarea_set.all():
+    # Buscamos la fecha para congelar el precio en el presupuesto
+    fecha_referencia = getattr(pedido, 'fecha_presupuesto', None) or getattr(pedido, 'fecha_finalizacion', None)
 
-        total_mano_obra += tarea.amortiguador.fichaamortiguador.mano_obra_reparacion
-        
-  
-        for mat_sugerido in tarea.materialtarea_set.all():
-            total_materiales += (mat_sugerido.material.precio_venta * mat_sugerido.stockrecomendado)
+    for tarea in pedido.tarea_set.all():
+        # ¡CORRECCIÓN CLAVE ACÁ!
+        # Todo el cálculo de dinero extra (mano de obra y materiales)
+        # DEBE ir adentro de este "if", así ignoramos los repuestos fantasma de los controles.
+        if tarea.tipoTarea == 'reparacion':
+            total_mano_obra += MANO_OBRA_REPARACION
+            
+            for mat_sugerido in tarea.materialtarea_set.all():
+                precio_historico = _obtener_precio_en_fecha(mat_sugerido.material, fecha_referencia)
+                total_materiales += (precio_historico * mat_sugerido.stockrecomendado)
             
     return total_revision + total_mano_obra + total_materiales
 
-
 def _obtener_desglose_presupuesto(pedido):
     """
-    Retorna un desglose detallado del presupuesto ESTIMADO con precios de HOY.
-    - Precio de revisión por tarea
-    - Desglose de materiales agrupados (sumando cantidades del mismo material)
-    - Mano de obra por tareas de reparación
+    Retorna un desglose detallado del presupuesto ESTIMADO.
+    Busca los precios históricos de la 'fecha_presupuesto' para que no cambien por inflación.
+    Si aún no hay fecha_presupuesto (ej: está en estado 'revisado'), usa los precios de HOY.
     """
     tareas = pedido.tarea_set.all()
     num_tareas = tareas.count()
@@ -869,23 +905,25 @@ def _obtener_desglose_presupuesto(pedido):
     total_mano_obra_reparacion = num_tareas_reparacion * MANO_OBRA_REPARACION
 
     materiales_agrupados = {}
-    fecha_hoy = timezone.now().date()
+    
+    # ¡NUEVA LÓGICA ACÁ! 
+    # Busca la fecha en la que se generó el presupuesto. Si es None, usa HOY.
+    fecha_referencia = getattr(pedido, 'fecha_presupuesto', None) or getattr(pedido, 'fecha_finalizacion', None) 
 
-    # --- ACÁ ESTABA EL ERROR: Faltaban los bucles para recorrer las tareas y materiales ---
     for tarea in tareas_reparacion:
         for mat_sugerido in tarea.materialtarea_set.all():
             material = mat_sugerido.material
-            precio_actual = _obtener_precio_en_fecha(material, fecha_hoy)
+            # Buscamos el precio que tenía el material en ESA fecha_referencia
+            precio_historico = _obtener_precio_en_fecha(material, fecha_referencia)
             material_id = material.id
             
             if material_id not in materiales_agrupados:
                 materiales_agrupados[material_id] = {
-                    'nombre': material.tipo, # o material.nombre dependiendo de tu modelo
-                    'precio_unitario': precio_actual,
+                    'nombre': material.tipo, 
+                    'precio_unitario': precio_historico,
                     'cantidad_total': Decimal('0'),
                 }
             materiales_agrupados[material_id]['cantidad_total'] += mat_sugerido.stockrecomendado
-    # -------------------------------------------------------------------------------------
 
     desglose_materiales = []
     total_materiales = Decimal('0.00')
@@ -929,7 +967,7 @@ def _obtener_presupuesto_real(pedido):
     precio_revision_total = num_tareas * PRECIO_REVISION_BASE
     
 
-    fecha_referencia = pedido.fecha_finalizacion if pedido.fecha_finalizacion else timezone.now().date()
+    fecha_referencia = getattr(pedido, 'fecha_presupuesto', None) or getattr(pedido, 'fecha_finalizacion', None)
     
 
     materiales_agrupados = {}
@@ -1134,24 +1172,95 @@ def home(request):
         return redirect('login')
 
     operario = getattr(request.user, 'operario', None)
+    rol = operario.role if operario else 'encargado'
 
-    if operario:
-        if operario.role == 'operario':
-            return redirect('paneltareas')
-        if operario.role == 'encargado_materiales':
-            return redirect('control_inventario')
+ 
+    if operario and operario.role == 'operario':
+        # 1. Últimas 5 tareas modificadas asignadas a este operario
+        ultimas_tareas = Tarea.objects.filter(operario=operario).select_related('amortiguador', 'pedido').order_by('-id')[:5]
 
-    hoy = timezone.now().date()
+        # 2. Total de tareas de reparación terminadas por este operario
+        reparaciones_terminadas = Tarea.objects.filter(
+            operario=operario, 
+            tipoTarea='reparacion', # <-- CORREGIDO: antes decía tipo='reparacion'
+            estado='terminada'
+        ).count()
+
+        # 3. Métricas rápidas (KPIs)
+        tareas_pendientes_op = Tarea.objects.filter(operario=operario, estado='pendiente').count()
+        tareas_por_reparar_op = Tarea.objects.filter(operario=operario, estado='por reparar').count()
+        tareas_en_reparacion_op = Tarea.objects.filter(operario=operario, estado='en reparacion').count()
+
+        # 4. Gráfico del Operario: Distribución de Tareas por Tipo (Control vs Reparación)
+        total_control = Tarea.objects.filter(operario=operario, tipoTarea='control').count() # <-- CORREGIDO
+        total_reparacion = Tarea.objects.filter(operario=operario, tipoTarea='reparacion').count() # <-- CORREGIDO
+
+        labels_operario = ['Control', 'Reparación']
+        data_operario = [total_control, total_reparacion]
+
+        context_operario = {
+            'ultimas_tareas': ultimas_tareas,
+            'reparaciones_terminadas': reparaciones_terminadas,
+            'tareas_pendientes_op': tareas_pendientes_op,
+            'tareas_por_reparar_op': tareas_por_reparar_op,
+            'tareas_en_reparacion_op': tareas_en_reparacion_op,
+            'labels_operario': labels_operario,
+            'data_operario': data_operario,
+            'role': 'operario',
+        }
+        return render(request, 'home_operario.html', context_operario)
+
+    # =========================================================================
+    # B. DASHBOARD PARA EL ENCARGADO DE MATERIALES
+    # =========================================================================
+    elif operario and operario.role == 'encargado_materiales':
+        # 1. Materiales más sugeridos en tareas (Top 5)
+        # ACÁ USAMOS materialtarea__stockrecomendado
+        materiales_mas_sugeridos = Material.objects.annotate(
+            total_sugerido=Coalesce(Sum('materialtarea__stockrecomendado'), 0)
+        ).order_by('-total_sugerido')[:5]
+
+        # 2. Materiales requeridos para tareas 'por reparar' que están sin stock / stock bajo
+        # ACÁ USAMOS materialtarea__tarea__estado
+        materiales_faltantes_tareas = Material.objects.filter(
+            materialtarea__tarea__estado='por reparar',
+            stockActual__lt=F('stockMinimo')
+        ).distinct()
+
+        # 3. KPIs de Inventario
+        alertas_stock = Material.objects.filter(stockActual__lte=F('stockMinimo')).count()
+        materiales_sin_stock = Material.objects.filter(stockActual=0).count()
+        total_materiales = Material.objects.count()
+
+        # 4. Gráfico Encargado de Materiales: Top 5 Insumos más sugeridos
+        labels_materiales = [m.nombre for m in materiales_mas_sugeridos]
+        data_materiales = [float(m.total_sugerido) for m in materiales_mas_sugeridos]
+
+        context_materiales = {
+            'materiales_mas_sugeridos': materiales_mas_sugeridos,
+            'materiales_faltantes_tareas': materiales_faltantes_tareas,
+            'alertas_stock': alertas_stock,
+            'materiales_sin_stock': materiales_sin_stock,
+            'total_materiales': total_materiales,
+            'labels_materiales': labels_materiales,
+            'data_materiales': data_materiales,
+            'role': 'encargado_materiales',
+        }
+        return render(request, 'home_encargado_materiales.html', context_materiales)
+
+    # =========================================================================
+    # C. DASHBOARD PARA EL ENCARGADO GENERAL / ADMINISTRADOR
+    # =========================================================================
+    hoy = timezone.now()
     hace_30_dias = hoy - timedelta(days=30)
     seis_meses_atras = hoy - timedelta(days=180)
 
-    # 1. KPIs (Tarjetas Superiores)
+    # 1. KPIs
     pedidos_activos = Pedido.objects.filter(cancelado=False).exclude(
         estado__in=['terminado', 'retirado', 'notificado']
     )
     total_activos = pedidos_activos.count()
     
-    # Atrasados de los últimos 30 días
     pedidos_atrasados_30d = pedidos_activos.filter(
         fechaSalidaEstimada__lt=hoy,
         fechaSalidaEstimada__gte=hace_30_dias
@@ -1161,7 +1270,7 @@ def home(request):
     alertas_stock = Material.objects.filter(stockActual__lt=F('stockMinimo')).count()
     materiales_stock_bajo = Material.objects.filter(stockActual__lt=F('stockMinimo')).order_by('tipo')
 
-    # 2. Gráfico 1: Ganancias de Pedidos Retirados (Últimos 6 meses)
+    # 2. Gráfico 1: Ganancias
     pedidos_retirados = Pedido.objects.filter(
         estado='retirado', 
         cancelado=False, 
@@ -1171,7 +1280,7 @@ def home(request):
     ventas_por_mes = {}
     for p in pedidos_retirados:
         if p.fechaSalidaReal:
-            mes_key = p.fechaSalidaReal.strftime('%Y-%m') # Formato: 2026-08
+            mes_key = p.fechaSalidaReal.strftime('%Y-%m')
             ventas_por_mes[mes_key] = ventas_por_mes.get(mes_key, Decimal('0.00')) + (p.total_estimado or Decimal('0.00'))
 
     meses_es = {'01':'Ene', '02':'Feb', '03':'Mar', '04':'Abr', '05':'May', '06':'Jun', '07':'Jul', '08':'Ago', '09':'Sep', '10':'Oct', '11':'Nov', '12':'Dic'}
@@ -1180,14 +1289,14 @@ def home(request):
     labels_ganancias = [f"{meses_es[m.split('-')[1]]} {m.split('-')[0]}" for m in meses_ordenados]
     data_ganancias = [float(ventas_por_mes[m]) for m in meses_ordenados]
 
-    # 3. Gráfico 2: Cancelados vs Retirados (Éxito de operaciones)
+    # 3. Gráfico 2: Cancelados vs Retirados
     total_cancelados = Pedido.objects.filter(cancelado=True).count()
     total_retirados = Pedido.objects.filter(estado='retirado', cancelado=False).count()
     
     labels_comparativa = ['Retirados (Éxito)', 'Cancelados']
     data_comparativa = [total_retirados, total_cancelados]
 
-    # 4. Listado de Operarios con tareas activas
+    # 4. Listado de Operarios
     operarios_activos = Operario.objects.filter(role='operario').annotate(
         total_pendientes=Count('tarea', filter=Q(tarea__estado__in=['pendiente', 'por reparar', 'en reparacion'])),
         solo_pendientes=Count('tarea', filter=Q(tarea__estado='pendiente')),
@@ -1201,24 +1310,18 @@ def home(request):
         'tareas_pendientes': tareas_pendientes,
         'alertas_stock': alertas_stock,
         'materiales_stock_bajo': materiales_stock_bajo,
-        
-        # Gráficos
         'labels_ganancias': labels_ganancias,
         'data_ganancias': data_ganancias,
         'labels_comparativa': labels_comparativa,
         'data_comparativa': data_comparativa,
-        
-        # Operarios
         'operarios_activos': operarios_activos,
-        
-        'role': operario.role if operario else 'encargado',
+        'role': 'encargado',
     }
 
     if getattr(request.user, 'is_superuser', False) or not operario or operario.role == 'encargado':
         return render(request, 'home.html', context)
 
     return redirect('login')
-
 def login_view(request):
     if request.method == 'POST':
         username = request.POST.get('username')
@@ -1293,9 +1396,9 @@ def detalle_pedido(request, pedido_id):
     if tareas.exists() and tareas.exclude(estado='terminada').count() == 0:
         if pedido.estado not in ('terminado', 'retirado', 'notificado'):
             pedido.estado = 'terminado'
-            pedido.fecha_ultimo_cambio = timezone.now()
+            pedido.fecha_ultimo_cambio = timezone
             if not pedido.fecha_finalizacion:
-                pedido.fecha_finalizacion = timezone.now().date()
+                pedido.fecha_finalizacion = timezone.now()
             pedido.save(update_fields=['estado', 'fecha_finalizacion', 'fecha_ultimo_cambio'])
     
     presupuesto_estimado = 0
@@ -1456,9 +1559,10 @@ def detalle_pedido(request, pedido_id):
         elif accion == 'finalizar_creacion_pedido':
 
             pedido.estado = 'asignado'
+            pedido.fecha_ultimo_cambio = timezone.now()
             pedido.save()
             messages.success(request, "Pedido confirmado y tareas asignadas a los operarios.")
-            return redirect('home')
+            return redirect('detalle_pedido', pedido_id=pedido.id)
 
         elif accion == 'aprobar_sugerencia_rapida':
             tarea_id = request.POST.get('tarea_id')
@@ -1477,8 +1581,9 @@ def detalle_pedido(request, pedido_id):
                         tarea.materialtarea_set.all().delete() 
                     
                     tarea.tipoTarea = sugerencia
+                    tarea.devuelta = False
                     tarea.fecha_ultimo_cambio = timezone.now()
-                    tarea.save(update_fields=['estado', 'tipoTarea', 'fecha_ultimo_cambio'])
+                    tarea.save(update_fields=['estado', 'tipoTarea', 'fecha_ultimo_cambio', 'devuelta'])
                     sincronizar_estado_pedido(pedido)
                     
                     messages.success(request, f'Sugerencia técnica aprobada para el amortiguador {tarea.amortiguador.nroSerieamortiguador}.')
@@ -1697,10 +1802,41 @@ def create_tarea(request, pedido_id):
     
     fichas = Fichaamortiguador.objects.all()
     pedido = get_object_or_404(Pedido, id=pedido_id)
-    context = { 'operarios': operarios, 'fichas': fichas, 'pedido': pedido }
+    
+    # 1. Obtenemos las series cargadas
+    series_cargadas = list(Tarea.objects.filter(pedido=pedido).values_list('amortiguador__nroSerieamortiguador', flat=True))
+    
+    # ACÁ ESTÁ EL SECRETO: convertimos a string (str) antes de hacer upper() para evitar el error del 'int'
+    series_cargadas_upper = [str(s).strip().upper() for s in series_cargadas]
+    
+    context = { 
+        'operarios': operarios, 
+        'fichas': fichas, 
+        'pedido': pedido, 
+        'series_en_pedido': series_cargadas 
+    }
     
     if request.method == 'POST':
         accion = request.POST.get('accion')
+        
+        # ========================================================
+        # VALIDACIÓN ESTRICTA DE BACKEND (CANDADO DE SEGURIDAD)
+        # ========================================================
+        if accion in ['buscar', 'crear_amortiguador_tarea']:
+            # Aseguramos que lo que viene del form sea tratado como texto
+            nro_serie_input = str(request.POST.get('nroSerieamortiguador', '')).strip().upper()
+            if nro_serie_input in series_cargadas_upper:
+                context['error_backend'] = f'El amortiguador serie {nro_serie_input} ya pertenece a una tarea de este pedido.'
+                return render(request, 'create_tarea.html', context)
+                
+        elif accion == 'crear_tarea':
+            id_amortiguador = request.POST.get('id_amortiguador')
+            amort_obj = Amortiguador.objects.filter(id=id_amortiguador).first()
+            # ¡LA SOLUCIÓN APLICADA AQUÍ CON str()!
+            if amort_obj and str(amort_obj.nroSerieamortiguador).strip().upper() in series_cargadas_upper:
+                context['error_backend'] = f'El amortiguador serie {amort_obj.nroSerieamortiguador} ya pertenece a una tarea de este pedido.'
+                return render(request, 'create_tarea.html', context)
+        # ========================================================
         
         # --- CASO 1: SOLO BUSCAR EL AMORTIGUADOR ---
         if accion == 'buscar':
@@ -1717,7 +1853,7 @@ def create_tarea(request, pedido_id):
         # --- CASO 2: CREAR EL AMORTIGUADOR (PORQUE NO EXISTÍA) Y LUEGO LA TAREA ---
         elif accion == 'crear_amortiguador_tarea':
             nro_serie_input = request.POST.get('nroSerieamortiguador')
-            ficha_id = request.POST.get('ficha_amortiguador') # Viene del input hidden del JS
+            ficha_id = request.POST.get('ficha_amortiguador') 
             
             ficha_seleccionada = get_object_or_404(Fichaamortiguador, id=ficha_id)
             
@@ -1736,9 +1872,6 @@ def create_tarea(request, pedido_id):
                 pedido=pedido,
                 estado='pendiente'
             ) 
-            
-            
-                
             return redirect('detalle_pedido', pedido_id=pedido.id)
             
         # --- CASO 3: EL AMORTIGUADOR YA EXISTÍA Y CREAMOS SOLO LA TAREA ---
@@ -1753,9 +1886,6 @@ def create_tarea(request, pedido_id):
                 pedido=pedido,
                 estado='pendiente'
             ) 
-            
-            
-                
             return redirect('detalle_pedido', pedido_id=pedido.id)
 
     return render(request, 'create_tarea.html', context)
@@ -1942,12 +2072,13 @@ def detalle_tarea(request, tarea_id):
             nuevo_tipo = request.POST.get('confirmarreparacion')
             tipo_actual = (tarea.tipoTarea or '').strip()
             cambio_de_tipo = tipo_actual != nuevo_tipo
+            tarea.devuelta = False
 
             tarea.tipoTarea = nuevo_tipo
             tarea.estado = 'terminada' if nuevo_tipo == 'control' else 'por reparar'
             tarea.fecha_ultimo_cambio = timezone.now()
             tarea.pedido.fecha_ultimo_cambio = timezone.now()
-            tarea.save(update_fields=['tipoTarea', 'estado'])
+            tarea.save(update_fields=['tipoTarea', 'estado', 'devuelta', 'fecha_ultimo_cambio', 'pedido__fecha_ultimo_cambio'])
             
             
             sincronizar_estado_pedido(tarea.pedido)
@@ -2032,6 +2163,12 @@ def detalle_tarea(request, tarea_id):
                 messages.error(request, 'Solo se puede finalizar una tarea en reparacion.')
                 return redirect('detalle_tarea', tarea_id=tarea.id)
 
+            # Capturamos el nuevo valor del diagrama final
+            valor_diag_final = request.POST.get('valor_diagrama_final')
+            if not valor_diag_final:
+                messages.error(request, 'Debes ingresar el valor final del diagrama de fuerza.')
+                return redirect('detalle_tarea', tarea_id=tarea.id)
+
             errores = []
             consumos_tarea = []
             consumo_por_material = {}
@@ -2075,9 +2212,7 @@ def detalle_tarea(request, tarea_id):
                     extra = max(total_usado - reservado_tarea, 0)
                     libre = actual - reservado_total
                     if extra > libre:
-                        errores.append(
-                            f"Stock insuficiente en {mat.tipo}: falta {extra - max(libre, 0)} adicional(es)."
-                        )
+                        errores.append(f"Stock insuficiente en {mat.tipo}: falta {extra - max(libre, 0)} adicional(es).")
                         continue
 
                     if total_usado > actual:
@@ -2106,35 +2241,37 @@ def detalle_tarea(request, tarea_id):
                 tarea.save(update_fields=['estado', 'fecha_finalizacion', 'fecha_ultimo_cambio'])
                 Notificacion.objects.filter(tarea=tarea, resolved=False).update(resolved=True)
 
-                
                 try:
                     observacion = Observacion.objects.get(tarea=tarea)
+                    
+                    # Guardamos el valor final del diagrama de fuerza
+                    try:
+                        observacion.valor_diagrama_final = Decimal(valor_diag_final.replace(',', '.'))
+                    except (ValueError, TypeError):
+                        pass
+
                     if tarea.tipoTarea == 'control':
                         observacion.comentariofinal = 'Tipo tarea: control'
                     elif tarea.tipoTarea == 'reparacion':
-                    
                         lineas_materiales = []
                         for mt in MaterialTarea.objects.select_related('material').filter(tarea=tarea):
                             if mt.stockusado:
                                 lineas_materiales.append(f"- {mt.material.nombre}: {mt.stockusado} {mt.material.unidad}")
                         if lineas_materiales:
                             observacion.comentariofinal = "Materiales utilizados:\n" + "\n".join(lineas_materiales)
-                   
-                    observacion.save(update_fields=['comentariofinal'])
+
+                    observacion.save(update_fields=['comentariofinal', 'valor_diagrama_final'])
                 except Observacion.DoesNotExist:
                     pass
 
-           
                 sincronizar_estado_pedido(tarea.pedido)
 
             messages.success(request, 'Tarea finalizada y stock actualizado.')
-            
-           
+
             if tarea.pedido.estado == 'terminado':
                 messages.success(request, 'Todas las tareas finalizaron. El pedido pasó a terminado.')
-                
-            return redirect('detalle_tarea', tarea_id=tarea.id)
 
+            return redirect('detalle_tarea', tarea_id=tarea.id)
 
         elif accion == 'devolver_tarea':
             # Verificamos que sea el encargado
@@ -2334,7 +2471,7 @@ def crear_o_editar_observacion(request, tarea_id):
         tarea.devuelta = False
         tarea.fecha_ultimo_cambio = timezone.now()
         tarea.pedido.fecha_ultimo_cambio = timezone.now()
-        tarea.save(update_fields=['estado', 'fecha_ultimo_cambio', 'devuelta', 'fecha_inicio_reparacion'])
+        tarea.save(update_fields=['estado', 'fecha_ultimo_cambio', 'devuelta', 'fecha_inicio_reparacion', 'tipoTarea'])
         messages.success(request, 'Diagnóstico completo guardado.')
         return redirect('detalle_tarea', tarea_id=tarea.id)
 

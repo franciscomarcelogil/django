@@ -1,67 +1,103 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="container mt-4 bg-light p-4 rounded shadow-sm border">
-  <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-2">
-    <h2 class="text-primary mb-0">Historial de Amortiguador: {{ amortiguador.nroSerieamortiguador }}</h2>
-    <span class="badge bg-secondary fs-6">Ficha: {{ amortiguador.fichaamortiguador.nombregenerico}}</span>
-  </div>
-  {% if observaciones %}
-  <div class="table-responsive" style="border: 1px solid #d5dde7; border-radius: 8px; overflow: hidden;">
-    <table class="table table-smooth-borders align-middle bg-white mb-0" style="border: none;">
-      <thead class="table-light">
-        <tr>
-          <th style="width: 120px;">Fecha y Hora</th>
-          <th> id tarea </th>
-         
-          <th class="text-center">Diagrama</th>
-          <th>Comentarios del Operario</th>
-          <th>Comentario Sugerencia</th>
-          <th>Comentario Final</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for observacion in observaciones %}
-        <tr>
+<div class="container py-4">
 
-          <td>
-            <span class="fw-bold d-block">{{ observacion.fecha|date:"d/m/Y" }}</span>
-            <small class="text-muted">{{ observacion.fecha|time:"H:i" }}</small>
-          </td>
-          <td>
-            <span>{{ observacion.tarea.id }}</span>
-          </td>
-          <td class="text-center fw-bold">
-            {{ observacion.valor_diagrama|default:'N/A' }}
-          </td>
-          
+  <!-- ENCABEZADO DEL HISTORIAL -->
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 pb-3 border-bottom">
+    <div>
+      <h2 class="mb-4 text-dark fw-bold"><i class="fas fa-history text-primary me-2"></i>Historial del Amortiguador</h2>
+      <p class="text-bold mb-0 fs-5 mt-1">Serie: <strong class="text-dark">{{ amortiguador.nroSerieamortiguador }}</strong></p>
+      <p class="text-bold mb-0 fs-5 mt-1">Ficha: <strong class="text-dark">{{ amortiguador.fichaamortiguador.nombregenerico }}</strong></p>
+    </div>
+    <div class="mt-3 mt-md-0">
       
-          <td>
-            <span class="small">{{ observacion.detalle_operario|default:'Sin comentarios.'|linebreaksbr }}</span>
-          </td>
-          
-  
-          <td class="small" style="white-space: pre-wrap; min-width: 280px;">{{ observacion.detalle_autogenerado }}</td>
-          
+    </div>
+    <div class="mt-4 pt-2">
 
-          <td>
-            <span class="small">{{ observacion.comentariofinal|default:'-'|linebreaksbr }}</span>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <a href="{% url 'detalle_pedido' id_pedido %}" class="btn btn-outline-secondary rounded-pill px-4 shadow-sm">
+      <i class="fas fa-arrow-left me-2"></i> Volver al Pedido
+    </a>
   </div>
+    
+  </div>
+
+  <!-- LÍNEA DE TIEMPO (TARJETAS) -->
+  {% if observaciones %}
+    <div class="timeline-container">
+      {% for observacion in observaciones %}
+        <div class="card shadow-sm border-0 rounded-3 mb-4 {% if forloop.first %}border-start border-4 border-primary{% else %}border-start border-4 border-secondary border-opacity-50{% endif %}">
+          
+          <!-- Cabecera de la Tarjeta -->
+          <div class="card-header bg-white border-bottom-0 pt-3 pb-2 d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 text-dark fw-bold">
+              <i class="far fa-calendar-check text-muted me-2"></i>{{ observacion.fecha|date:"d M Y" }} 
+              <small class="text-muted fw-normal ms-2 fs-6">{{ observacion.fecha|time:"H:i" }} hs</small>
+            </h5>
+            <div class="d-flex align-items-center gap-2">
+              {% if forloop.first %}
+                <span class="badge rounded-pill small">Último Ingreso</span>
+              {% endif %}
+              <span class="badge bg-light text-dark border rounded-pill">Tarea #{{ observacion.tarea.id }}</span>
+            </div>
+          </div>
+
+          <!-- Cuerpo de la Tarjeta -->
+          <div class="card-body bg-light rounded-bottom p-4">
+            
+            <!-- Fila 1: Valores de Máquina y Operario -->
+            <div class="row g-4 mb-4">
+              <div class="col-md-3">
+                <div class="bg-white p-3 rounded shadow-sm h-100 border-0">
+                  <h6 class="text-muted small text-uppercase fw-bold"><i class="fas fa-sign-in-alt text-warning me-1"></i> Diagrama Inicial</h6>
+                  <p class="fs-4 mb-0 fw-bold text-dark">{{ observacion.valor_diagrama|default:'-' }} <span class="fs-6 fw-normal text-muted">N</span></p>
+                </div>
+              </div>
+              
+              <div class="col-md-3">
+                <div class="bg-white p-3 rounded shadow-sm h-100 border-0">
+                  <h6 class="text-muted small text-uppercase fw-bold"><i class="fas fa-sign-out-alt text-success me-1"></i> Diagrama Final</h6>
+                  <p class="fs-4 mb-0 fw-bold {% if observacion.valor_diagrama_final %}text-success{% else %}text-muted{% endif %}">
+                    {{ observacion.valor_diagrama_final|default:'N/A' }} {% if observacion.valor_diagrama_final %}<span class="fs-6 fw-normal text-muted">N</span>{% endif %}
+                  </p>
+                </div>
+              </div>
+
+              <div class="col-md-6">
+                <div class="h-100">
+                  <h6 class="text-muted small text-uppercase fw-bold"><i class="fas fa-comment-dots text-secondary me-1"></i> Observaciones del Operario</h6>
+                  <p class="mb-0 text-dark">{{ observacion.detalle_operario|default:'<em class="text-muted">Sin comentarios ingresados por el operario.</em>'|safe|linebreaksbr }}</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Fila 2: Textos del Sistema y Resolución -->
+            <div class="row g-4 border-top pt-3">
+              <div class="col-md-6 mb-4">
+                <h6 class="text-muted small text-uppercase fw-bold"><i class="fas fa-robot text-primary me-1"></i> Bitácora del Sistema</h6>
+                <div class="bg-white p-3 rounded shadow-sm border small font-monospace text-secondary h-100" style="white-space: pre-wrap;">{{ observacion.detalle_autogenerado }}</div>
+              </div>
+              <div class="col-md-6 mb-4">
+                <h6 class="text-muted small text-uppercase fw-bold"><i class="fas fa-clipboard-check text-success me-1"></i> Resolución Final / Materiales</h6>
+                <div class="bg-white p-3 rounded shadow-sm border small text-dark h-100" style="white-space: pre-wrap;">{{ observacion.comentariofinal|default:'<em class="text-muted">Aún no se ha finalizado la tarea.</em>'|safe }}</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+
   {% else %}
-  <div class="alert alert-info py-4 text-center">
-    <i class="fas fa-info-circle mb-2" style="font-size: 24px;"></i><br>
-    Todavía no hay revisiones ni observaciones registradas en el historial de este amortiguador.
-  </div>
+    <!-- Estado Vacío -->
+    <div class="alert bg-light border p-5 text-center rounded-3 shadow-sm">
+      <i class="fas fa-folder-open text-muted mb-3" style="font-size: 3rem;"></i>
+      <h4 class="text-dark fw-bold">Historial Limpio</h4>
+      <p class="text-muted mb-0">Todavía no hay revisiones ni observaciones registradas en el historial de este amortiguador.</p>
+    </div>
   {% endif %}
-  
 
-  <a href="{% url 'detalle_pedido' id_pedido %}" class="btn btn-outline-secondary mt-3">
-    <i class="fas fa-arrow-left"></i> Volver al Pedido
-  </a>
+  <!-- BOTÓN VOLVER -->
+  
 
 </div>
 {% endblock %}

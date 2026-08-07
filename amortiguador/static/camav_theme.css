@@ -28,7 +28,7 @@
 
 /* Encabezado con el estilo oscuro que usas en las tareas */
 .modal-header {
-  background-color: #212529; /* El color dark que usas en el header de tareas */
+  background-color: #feffff; /* El color dark que usas en el header de tareas */
   color: white;
   border-top-left-radius: 15px;
   border-top-right-radius: 15px;
@@ -817,7 +817,7 @@ small,
   border: 0;
   border-radius: 24px;
   color: #fff;
-  background: linear-gradient(135deg, #0f172a 0%, #3f5d7a 55%, #6b8db0 100%);
+
   box-shadow: 0 22px 50px rgba(20, 32, 48, 0.16);
 }
 

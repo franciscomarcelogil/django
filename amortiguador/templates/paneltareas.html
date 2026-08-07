@@ -2,12 +2,11 @@
 
 {% block content %}
 <div class="container dashboard-shell">
-  <div class="page-hero p-4 p-md-5 mb-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
     <div class="position-relative" style="z-index: 1;">
-      <div class="page-hero__eyebrow mb-2">Operario</div>
-      <h1 class="fw-bold mb-2">Mis tareas asignadas</h1>
-      <p class="mb-0 text-white-50" style="max-width: 740px;">Tarjetas con la información clave para entrar rápido a cada tarea y gestionar tu trabajo.</p>
+      <h1 class="fw-bold">Mis tareas asignadas</h1>
     </div>
+    
   </div>
 
   <!-- Barra de Herramientas: Filtros (Django) y Ordenamiento (JS) -->
@@ -154,9 +153,7 @@
           <a href="{% url 'detalle_tarea' tarea.id %}" class="btn {% if tarea.devuelta %}btn-danger{% else %}btn-primary{% endif %} flex-grow-1">
             {% if tarea.devuelta %}Corregir tarea{% else %}Gestionar tarea{% endif %}
           </a>
-          <a href="{% url 'detalle_pedido' tarea.pedido.id %}" class="btn btn-outline-secondary px-3" title="Ver pedido completo">
-            Ver Pedido
-          </a>
+          
         </div>
       </article>
     </div>
