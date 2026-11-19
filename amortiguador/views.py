@@ -26,6 +26,7 @@ import json
 
 
 
+
 PRECIO_REVISION_BASE = Decimal('20000.00') 
 MANO_OBRA_REPARACION = Decimal('40000.00')  
 
@@ -1379,7 +1380,104 @@ def createpedido(request):
                     context['error'] = "No se puede crear el pedido. Cliente no encontrado."
 
         return render(request, 'createpedido.html', context)
+
+@role_required(['encargado'])
+def crear_pedido_dinamico(request):
+    if request.method == 'POST' and request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        try:
+            data = json.loads(request.body)
+            accion = data.get('accion')
+
+            # --- AJAX: 1. VERIFICAR CLIENTE ---
+            if accion == 'verificar_cliente':
+                dni = data.get('dni')
+                cliente = Cliente.objects.filter(dni=dni).first()
+                if cliente:
+                    return JsonResponse({
+                        'encontrado': True,
+                        'nombre': cliente.nombre,
+                        'apellido': cliente.apellido,
+                        'correo': cliente.correo,
+                        'telefono': cliente.telefono
+                    })
+                return JsonResponse({'encontrado': False})
+
+            # --- AJAX: 2. VERIFICAR AMORTIGUADOR ---
+            elif accion == 'verificar_amortiguador':
+                serie = data.get('serie').strip().upper()
+                amort = Amortiguador.objects.filter(nroSerieamortiguador__iexact=serie).first()
+                if amort:
+                    return JsonResponse({
+                        'encontrado': True,
+                        'ficha_nombre': amort.fichaamortiguador.nombregenerico,
+                        'ficha_nroserie': amort.fichaamortiguador.nroseriegenerico,
+                        'ficha_id': amort.fichaamortiguador.id,
+                    })
+                return JsonResponse({'encontrado': False})
+
+            # --- AJAX: 3. GUARDAR TODO EL PEDIDO DE GOLPE ---
+            elif accion == 'guardar_pedido':
+                with transaction.atomic():
+                    # 1. Crear o actualizar el cliente
+                    cliente, created = Cliente.objects.update_or_create(
+                        dni=data.get('dni'),
+                        defaults={
+                            'nombre': data.get('nombre_cliente'),
+                            'apellido': data.get('apellido_cliente'),
+                            'correo': data.get('correo_cliente'),
+                            'telefono': data.get('telefono_cliente')
+                        }
+                    )
+
+                    # 2. Crear el Pedido directamente en estado 'asignado'
+                    pedido = Pedido.objects.create(
+                        cliente=cliente,
+                        estado='asignado',
+                        fechaingreso=timezone.now(),
+                        fecha_ultimo_cambio=timezone.now()
+                    )
+
+                    # 3. Procesar las Tareas y Amortiguadores de la memoria
+                    for item in data.get('tareas', []):
+                        nro_serie = item['nroSerie'].strip().upper()
+                        amortiguador = Amortiguador.objects.filter(nroSerieamortiguador__iexact=nro_serie).first()
+
+                        if not amortiguador:
+                            # Si es nuevo, usamos la ficha y tipo enviados desde el JS
+                            ficha = Fichaamortiguador.objects.get(id=item['fichaId'])
+                            amortiguador = Amortiguador.objects.create(
+                                nroSerieamortiguador=nro_serie,
+                                fichaamortiguador=ficha
+                            )
+
+                        operario = Operario.objects.get(id=item['operarioId'])
+                        
+                        Tarea.objects.create(
+                            pedido=pedido,
+                            amortiguador=amortiguador,
+                            operario=operario,
+                            
+                            estado='pendiente',
+                            fechaAsignacion=timezone.now(),
+                            fecha_ultimo_cambio=timezone.now()
+                        )
+
+                return JsonResponse({'status': 'success', 'redirect_url': f'/detalle_pedido/{pedido.id}/'})
+
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+
+    # --- GET: RENDERIZAR PLANTILLA INICIAL ---
+    operarios = Operario.objects.filter(role='operario').annotate(
+        tareas_pendientes=Count('tarea', filter=Q(tarea__estado__in=['por reparar', 'pendiente', 'en reparacion']))
+    ).order_by('tareas_pendientes')
     
+    fichas = Fichaamortiguador.objects.all()
+
+    return render(request, 'crear_pedido_dinamico.html', {
+        'operarios': operarios,
+        'fichas': fichas
+    })
 @role_required(['encargado'])
 def detalle_pedido(request, pedido_id):
     pedido = get_object_or_404(Pedido, id=pedido_id)
@@ -1396,7 +1494,7 @@ def detalle_pedido(request, pedido_id):
     if tareas.exists() and tareas.exclude(estado='terminada').count() == 0:
         if pedido.estado not in ('terminado', 'retirado', 'notificado'):
             pedido.estado = 'terminado'
-            pedido.fecha_ultimo_cambio = timezone
+            pedido.fecha_ultimo_cambio = timezone.now()
             if not pedido.fecha_finalizacion:
                 pedido.fecha_finalizacion = timezone.now()
             pedido.save(update_fields=['estado', 'fecha_finalizacion', 'fecha_ultimo_cambio'])
@@ -1441,39 +1539,101 @@ def detalle_pedido(request, pedido_id):
                 messages.error(request, 'No se encontró la tarea a eliminar.')
             
             return redirect('detalle_pedido', pedido_id=pedido.id)
-        elif accion == 'rechazar_sugerencia_rapida':
-            tarea_id = request.POST.get('tarea_id')
-            motivo = request.POST.get('motivo_devolucion', '').strip()
+        elif accion == 'guardar_revision_global':
+            import json
+            decisiones_raw = request.POST.get('decisiones')
             
+            if not decisiones_raw:
+                messages.error(request, 'No se recibieron datos de revisión.')
+                return redirect('detalle_pedido', pedido_id=pedido.id)
+
             try:
-                tarea = Tarea.objects.get(id=tarea_id, pedido=pedido)
-                if tarea.estado not in ('no revisada', 'por reparar'):
-                    messages.error(request, 'Solo puedes devolver tareas que estén en revisión.')
+                decisiones = json.loads(decisiones_raw)
+            except json.JSONDecodeError:
+                messages.error(request, 'Error al procesar las decisiones (JSON inválido).')
+                return redirect('detalle_pedido', pedido_id=pedido.id)
+
+            hubo_rechazo = False
+
+            with transaction.atomic():
+                # 1. Procesar cada tarea según la decisión tomada en la interfaz
+                for tarea_id, data in decisiones.items():
+                    try:
+                        tarea = Tarea.objects.select_for_update().get(id=tarea_id, pedido=pedido)
+                        decision = data.get('decision')
+                        motivo = data.get('motivo', '').strip()
+
+                        # Solo procesamos tareas que realmente requieran revisión
+                        if tarea.estado != 'no revisada':
+                            continue 
+
+                        if decision == 'rechazar':
+                            hubo_rechazo = True
+                            observacion = Observacion.objects.filter(tarea=tarea).first()
+                            if observacion:
+                                fecha_str = timezone.now().strftime('%d/%m/%Y %H:%M')
+                                nota_encargado = f"\n\n[DEVUELTO POR ENCARGADO - {fecha_str}]\nMotivo: {motivo}"
+                                observacion.detalle_autogenerado += nota_encargado
+                                observacion.save(update_fields=['detalle_autogenerado'])
+
+                            tarea.estado = 'pendiente'
+                            tarea.devuelta = True
+                            tarea.fecha_ultimo_cambio = timezone.now()
+                            tarea.save(update_fields=['estado', 'fecha_ultimo_cambio', 'devuelta'])
+
+                        elif decision == 'control':
+                            tarea.tipoTarea = 'control'
+                            tarea.estado = 'terminada'
+                            tarea.devuelta = False
+                            tarea.fecha_ultimo_cambio = timezone.now()
+                            tarea.materialtarea_set.all().delete() # Eliminamos materiales si pasa a control
+                            tarea.save(update_fields=['tipoTarea', 'estado', 'devuelta', 'fecha_ultimo_cambio'])
+
+                        elif decision == 'aprobar':
+                            observacion = Observacion.objects.filter(tarea=tarea).first()
+                            sugerencia = (observacion.sugerencia_tecnica or '').strip().lower() if observacion else ''
+                            
+                            tarea.tipoTarea = sugerencia
+                            tarea.estado = 'por reparar' if sugerencia == 'reparacion' else 'terminada'
+                            tarea.devuelta = False
+                            tarea.fecha_ultimo_cambio = timezone.now()
+                            tarea.save(update_fields=['tipoTarea', 'estado', 'devuelta', 'fecha_ultimo_cambio'])
+
+                    except Tarea.DoesNotExist:
+                        continue
+
+                # 2. Lógica global del Pedido al terminar el bucle
+                if hubo_rechazo:
+                    # Si al menos una tarea se rechazó, el pedido vuelve a operarios
+                    pedido.estado = 'en curso'
+                    pedido.fecha_ultimo_cambio = timezone.now()
+                    pedido.save(update_fields=['estado', 'fecha_ultimo_cambio'])
+                    messages.warning(request, 'Se han devuelto tareas al operario para su corrección. El pedido regresó a "En curso".')
                 else:
-                    observacion = Observacion.objects.filter(tarea=tarea).first()
+                    # Si todo se aprobó o cambió a control, evaluamos si lleva presupuesto o se termina
+                    todas_terminadas = not tareas.exclude(estado='terminada').exists()
                     
-                    # Guardamos el motivo en el historial
-                    if observacion:
-                        fecha_str = timezone.now().strftime('%d/%m/%Y %H:%M')
-                        nota_encargado = f"\n\n[DEVUELTO POR ENCARGADO - {fecha_str}]\nMotivo: {motivo}"
-                        observacion.detalle_autogenerado += nota_encargado
-                        observacion.save(update_fields=['detalle_autogenerado'])
+                    if todas_terminadas:
+                        # Caso: Todas las tareas quedaron como "Control"
+                        pedido.estado = 'terminado'
+                        pedido.fecha_ultimo_cambio = timezone.now()
+                        if not pedido.fecha_finalizacion:
+                            pedido.fecha_finalizacion = timezone.now()
+                        pedido.save(update_fields=['estado', 'fecha_ultimo_cambio', 'fecha_finalizacion'])
+                        messages.success(request, 'Todas las tareas fueron de control. El pedido finalizó exitosamente.')
+                    else:
+                        # Caso: Al menos una tarea es "Reparación", se genera el presupuesto
+                        pedido.estado = 'presupuestado'
+                        pedido.fecha_ultimo_cambio = timezone.now()
+                        
+                        # Calculamos y guardamos el total estimado
+                        total = _obtener_presupuesto_estimado(pedido)
+                        pedido.total_estimado = total
+                        
+                        pedido.save(update_fields=['estado', 'fecha_ultimo_cambio', 'total_estimado'])
+                        messages.success(request, 'Revisión exitosa. El pedido pasó a estado "Presupuestado".')
 
-                    # Reiniciamos la tarea a pendiente y le prendemos la alerta roja (devuelta=True)
-                    tarea.estado = 'pendiente'
-                    tarea.devuelta = True
-                    tarea.fecha_ultimo_cambio = timezone.now()
-                    tarea.save(update_fields=['estado', 'fecha_ultimo_cambio', 'devuelta'])
-
-                    # Sincronizamos el pedido
-                    sincronizar_estado_pedido(pedido)
-
-                    messages.warning(request, f'La Tarea #{tarea.id} fue devuelta al operario con tus observaciones.')
-            except Tarea.DoesNotExist:
-                messages.error(request, 'No se encontró la tarea seleccionada.')
-                
-            return redirect('detalle_pedido', pedido_id=pedido.id)
-
+            return redirect('detalle_pedido', pedido_id=pedido.id)       
  # Agregalo junto a tus otros "elif" en detalle_pedido
         elif accion == 'cambiar_tipo_comercial':
             tarea_id = request.POST.get('tarea_id')
@@ -1539,7 +1699,6 @@ def detalle_pedido(request, pedido_id):
         elif accion == 'editar_tarea_asignacion':
             tarea_id = request.POST.get('tarea_id')
             nuevo_operario_id = request.POST.get('operario')
-            nueva_prioridad = request.POST.get('prioridad')
             
             try:
                 tarea = Tarea.objects.get(id=tarea_id, pedido=pedido)
@@ -1548,8 +1707,8 @@ def detalle_pedido(request, pedido_id):
                 else:
                     nuevo_operario = get_object_or_404(Operario, id=nuevo_operario_id)
                     tarea.operario = nuevo_operario
-                    tarea.prioridad = nueva_prioridad
-                    tarea.save(update_fields=['operario', 'prioridad'])
+
+                    tarea.save(update_fields=['operario'])
                     messages.success(request, f'Tarea #{tarea.id} actualizada correctamente.')
             except Tarea.DoesNotExist:
                 messages.error(request, 'No se encontró la tarea a editar.')
@@ -1564,35 +1723,7 @@ def detalle_pedido(request, pedido_id):
             messages.success(request, "Pedido confirmado y tareas asignadas a los operarios.")
             return redirect('detalle_pedido', pedido_id=pedido.id)
 
-        elif accion == 'aprobar_sugerencia_rapida':
-            tarea_id = request.POST.get('tarea_id')
-            try:
-                tarea = Tarea.objects.get(id=tarea_id, pedido=pedido)
-                # Obtenemos la observación asociada
-                observacion = Observacion.objects.filter(tarea=tarea).first()
-                
-                if observacion:
-                    sugerencia = (observacion.sugerencia_tecnica or '').strip().lower()
-                    
-                    if sugerencia == 'reparacion':
-                        tarea.estado = 'por reparar'
-                    elif sugerencia == 'control':
-                        tarea.estado = 'terminada' 
-                        tarea.materialtarea_set.all().delete() 
-                    
-                    tarea.tipoTarea = sugerencia
-                    tarea.devuelta = False
-                    tarea.fecha_ultimo_cambio = timezone.now()
-                    tarea.save(update_fields=['estado', 'tipoTarea', 'fecha_ultimo_cambio', 'devuelta'])
-                    sincronizar_estado_pedido(pedido)
-                    
-                    messages.success(request, f'Sugerencia técnica aprobada para el amortiguador {tarea.amortiguador.nroSerieamortiguador}.')
-                else:
-                    messages.error(request, 'No se puede aprobar porque el operario aún no generó el diagnóstico.')
-            except Tarea.DoesNotExist:
-                messages.error(request, 'No se encontró la tarea seleccionada.')
-                
-            return redirect('detalle_pedido', pedido_id=pedido.id)
+        
 
         elif accion == 'borrar_pedido':
             # REGLA DE NEGOCIO: Permitir borrar si está retirado o recién "asignado"
@@ -1859,14 +1990,13 @@ def create_tarea(request, pedido_id):
             
             amortiguador = Amortiguador.objects.create(
                 nroSerieamortiguador=nro_serie_input,
-                fichaamortiguador=ficha_seleccionada,
-                tipo=request.POST.get('tipo_amortiguador', '') 
+                fichaamortiguador=ficha_seleccionada
             )
             
             operario = get_object_or_404(Operario, id=request.POST.get('operario'))
             
             tarea = Tarea.objects.create(
-                prioridad=request.POST.get('prioridad'),
+
                 amortiguador=amortiguador,
                 operario=operario,
                 pedido=pedido,
@@ -1880,7 +2010,7 @@ def create_tarea(request, pedido_id):
             amortiguador = get_object_or_404(Amortiguador, id=request.POST.get('id_amortiguador'))
             
             tarea = Tarea.objects.create(
-                prioridad=request.POST.get('prioridad'),
+
                 amortiguador=amortiguador,
                 operario=operario,
                 pedido=pedido,
@@ -2007,29 +2137,68 @@ def detalle_tarea(request, tarea_id):
             return redirect('detalle_pedido', pedido_id=pedido_id)
 
 
-        if accion == 'terminarobservacioncontrol':
+        elif accion == 'terminarobservacioncontrol':
             if tarea.estado != 'pendiente':
                 messages.error(request, 'Solo puedes cerrar observaciones cuando la tarea esta pendiente.')
                 return redirect('detalle_tarea', tarea_id=tarea.id)
 
-            if not observacion:
-                messages.error(request, 'Debes cargar el diagnóstico antes de cerrar la revision.')
+            sugerencia = request.POST.get('sugerencia_tipo')
+            valor_diag_str = request.POST.get('valordiagrama', '')
+            detalle_op = request.POST.get('detalle_operario', '').strip()
+            
+            try:
+                from decimal import Decimal
+                valor_diag = Decimal(valor_diag_str.replace(',', '.'))
+            except (ValueError, TypeError, AttributeError):
+                messages.error(request, 'Valor del diagrama inválido.')
                 return redirect('detalle_tarea', tarea_id=tarea.id)
 
-            tarea.estado = 'no revisada'
-            tarea.pedido.fecha_ultimo_cambio = timezone.now()
-            tarea.fecha_ultimo_cambio = timezone.now()
-            tarea.save(update_fields=['estado'])
-            
-            # MAGIA: Sincronizamos el pedido
-            cambio_pedido = sincronizar_estado_pedido(tarea.pedido)
-            
-            context['class'] = 'alert alert-success'
-            context['message'] = 'Has finalizado las observaciones de control de calidad.'
-            
+            min_val = tarea.amortiguador.fichaamortiguador.valor_minimo
+            max_val = tarea.amortiguador.fichaamortiguador.valor_maximo
+            rango_str = "DENTRO DEL RANGO" if (min_val <= valor_diag <= max_val) else "FUERA DE RANGO"
+            auto_detalle = f"Sugerencia técnica: {sugerencia.upper()}\nValor inicial medido: {valor_diag} N ({rango_str})"
+
+            with transaction.atomic():
+                # CREACIÓN ATÓMICA DE LA OBSERVACIÓN
+                obs, created = Observacion.objects.update_or_create(
+                    tarea=tarea,
+                    defaults={
+                        'amortiguador': tarea.amortiguador,  # <--- ESTO SOLUCIONA TU ERROR DE SQL
+                        'sugerencia_tecnica': sugerencia,
+                        'valor_diagrama': valor_diag,
+                        'detalle_operario': detalle_op,
+                        'detalle_autogenerado': auto_detalle,
+                        'fecha': timezone.now()
+                    }
+                )
+
+                # GUARDAR MATERIALES
+                MaterialTarea.objects.filter(tarea=tarea).delete()
+                if sugerencia == 'reparacion':
+                    material_ids = request.POST.getlist('material_id[]')
+                    cantidades = request.POST.getlist('cantidadrecomendada[]')
+                    for m_id, cant in zip(material_ids, cantidades):
+                        try:
+                            cant_int = int(cant)
+                            if cant_int > 0:
+                                mat = Material.objects.get(id=m_id)
+                                MaterialTarea.objects.create(tarea=tarea, material=mat, stockrecomendado=cant_int)
+                        except (ValueError, Material.DoesNotExist):
+                            continue
+
+                # CAMBIAR ESTADOS
+                tarea.estado = 'no revisada'
+                tarea.fecha_ultimo_cambio = timezone.now()
+                tarea.pedido.fecha_ultimo_cambio = timezone.now()
+                tarea.save(update_fields=['estado', 'fecha_ultimo_cambio'])
+                tarea.pedido.save(update_fields=['fecha_ultimo_cambio'])
+
+                cambio_pedido = sincronizar_estado_pedido(tarea.pedido)
+
+            messages.success(request, 'Diagnóstico registrado y enviado a revisión de forma exitosa.')
             if cambio_pedido and tarea.pedido.estado == 'revisado':
-                messages.info(request, 'Todas las tareas fueron diagnosticadas. El pedido pasó a revisión del encargado.')
-                
+                messages.info(request, 'Todas las tareas fueron diagnosticadas. El pedido pasó a revisión.')
+
             return redirect('home')
        
             
@@ -2246,10 +2415,9 @@ def detalle_tarea(request, tarea_id):
                     
                     # Guardamos el valor final del diagrama de fuerza
                     try:
-                        observacion.valor_diagrama_final = Decimal(valor_diag_final.replace(',', '.'))
+                        observacion.valor_diagrama_final = valor_diag_final
                     except (ValueError, TypeError):
                         pass
-
                     if tarea.tipoTarea == 'control':
                         observacion.comentariofinal = 'Tipo tarea: control'
                     elif tarea.tipoTarea == 'reparacion':

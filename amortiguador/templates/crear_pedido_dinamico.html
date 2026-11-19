@@ -1,0 +1,515 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<style>
+  .sidebar-card { border: none; box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075); border-radius: 12px; margin-bottom: 1.5rem; overflow: hidden; background-color: #fff; }
+  .sidebar-card .card-header { background-color: transparent; border-bottom: 1px solid rgba(0,0,0,.05); padding: 1.25rem 1.5rem; font-weight: 700; }
+  .entity-card { border-radius: 12px; transition: all 0.2s; }
+  .operator-card { cursor: pointer; transition: all 0.2s ease-in-out; background-color: #ffffff; border-color: #dee2e6; }
+  .operator-card:hover { transform: translateY(-2px); box-shadow: 0 .25rem .5rem rgba(0,0,0,.1); border-color: #adb5bd; }
+  .operator-radio:checked + .operator-card { border-color: #0d6efd !important; background-color: #f0f7ff; box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25); }
+  .modal-header-dark { background-color: #212529 !important; border-bottom: 1px solid #dee2e6 !important; }
+</style>
+
+<div class="container-fluid mt-4 mb-5" style="max-width: 1400px;">
+  <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
+    <div>
+      <div class="text-uppercase fw-bold text-muted small mb-1" style="letter-spacing: 1px;">Gestión de Taller</div>
+      <h2 class="fw-bold mb-0 text-dark"><i class="bi bi-file-earmark-plus text-primary me-2"></i>Crear Nuevo Pedido</h2>
+    </div>
+    <a href="{% url 'home' %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i> Cancelar</a>
+  </div>
+
+  <!-- PASO 1: BÚSQUEDA Y DATOS DEL CLIENTE -->
+  <div id="step-1-cliente" class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+      <div class="card sidebar-card shadow-sm border-0">
+        <div class="card-header bg-white py-3"><i class="bi bi-person-bounding-box text-primary me-2"></i>1. Identificación del Cliente</div>
+        <div class="card-body p-4">
+          <div class="mb-4">
+            <label class="form-label fw-bold small">Ingrese el DNI del Cliente</label>
+            <div class="input-group input-group-lg">
+              <input type="text" id="input-dni" class="form-control" placeholder="Ej: 30123456" />
+              <button type="button" id="btn-buscar-cliente" class="btn btn-primary px-4 fw-bold"><i class="bi bi-search"></i> Buscar</button>
+            </div>
+          </div>
+
+          <!-- Formulario del Cliente (Oculto al inicio) -->
+          <div id="form-cliente-container" class="d-none bg-light p-3 rounded border">
+            <div id="msg-cliente" class="alert py-2 small fw-bold mb-3"></div>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label small fw-bold">Nombre</label>
+                <input type="text" id="input-nombre" class="form-control" required />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small fw-bold">Apellido</label>
+                <input type="text" id="input-apellido" class="form-control" required />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small fw-bold">Correo Electrónico</label>
+                <input type="email" id="input-correo" class="form-control" />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small fw-bold">Teléfono</label>
+                <input type="text" id="input-telefono" class="form-control" required />
+              </div>
+            </div>
+            <button type="button" id="btn-continuar-paso2" class="btn btn-success w-100 mt-4 fw-bold">Continuar con la Asignación <i class="bi bi-arrow-right"></i></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PASO 2: TAREAS DEL PEDIDO (Oculto al inicio) -->
+  <div id="step-2-pedido" class="row g-4 d-none">
+    
+    <!-- Columna Izquierda: Cliente Sidebar -->
+    <div class="col-lg-4 col-xl-3 d-flex flex-column">
+      <div class="card sidebar-card">
+        <div class="card-header"><span class="text-dark"><i class="bi bi-person-badge text-success me-2"></i>Cliente Actual</span></div>
+        <div class="card-body p-4">
+          <div class="text-center mb-3">
+            <div class="bg-secondary bg-opacity-10 text-secondary rounded-circle d-flex align-items-center justify-content-center mx-auto mb-2" style="width: 50px; height: 50px;">
+              <i class="bi bi-person-fill fs-4"></i>
+            </div>
+            <h5 id="sidebar-nombre" class="fw-bold mb-1">Nombre Apellido</h5>
+            <span id="sidebar-dni" class="badge bg-secondary">DNI: 0000</span>
+          </div>
+          <hr>
+          <div class="d-flex flex-column gap-3 small">
+            <div>
+              <div class="text-muted fw-bold text-uppercase" style="font-size: 0.65rem;">Correo</div>
+              <div id="sidebar-correo" class="fw-medium text-truncate">-</div>
+            </div>
+            <div>
+              <div class="text-muted fw-bold text-uppercase" style="font-size: 0.65rem;">Teléfono</div>
+              <div id="sidebar-telefono" class="fw-medium">-</div>
+            </div>
+          </div>
+          <button type="button" class="btn btn-outline-secondary btn-sm w-100 mt-3" onclick="volverPaso1()">Editar Cliente</button>
+        </div>
+      </div>
+
+      <div class="card sidebar-card mt-auto border-success">
+        <div class="card-body p-3 text-center">
+          <h6 class="fw-bold text-success mb-2">Finalizar Operación</h6>
+          <button type="button" id="btn-confirmar-pedido" class="btn btn-success btn-lg w-100 fw-bold shadow-sm" disabled>
+            <i class="bi bi-check2-all me-1"></i> Confirmar Asignaciones
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Columna Derecha: Grilla de Tareas -->
+    <div class="col-lg-8 col-xl-9 bg-light">
+      <div class="d-flex justify-content-between align-items-end mb-3 border-bottom pb-2">
+        <div>
+          <h4 class="card-header"><i class="bi bi-list-task text-primary me-2"></i>Tareas a Registrar</h4>
+          
+        </div>
+        <button type="button" class="btn btn-primary fw-bold px-3 py-2 shadow-sm" onclick="abrirModalNuevaTarea()">
+          <i class="bi bi-plus-lg me-1"></i> Agregar Tarea
+        </button>
+      </div>
+  
+
+      <div class="row row-cols-1 row-cols-xl-2 g-3" id="tareas-grid">
+        <!-- Las tareas se renderizan aquí por JS -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PARA CREAR/EDITAR TAREA (Estilo create_tarea) -->
+<div class="modal fade" id="modalTarea" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      
+      <div class="modal-header modal-header-dark">
+        <h5 class="modal-title text-white fw-bold mb-0" id="modalTareaTitulo">Agregar Tarea</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="filter: invert(1) grayscale(100%) brightness(200%);"></button>
+      </div>
+
+      <div class="modal-body p-4 bg-light">
+        <input type="hidden" id="edit-index" value="-1">
+
+        <!-- 1. Búsqueda de Amortiguador -->
+        <div class="mb-4 bg-white p-3 rounded border shadow-sm">
+          <label class="form-label fw-bold text-dark">Número de Serie Físico</label>
+          <div class="input-group">
+            <input type="text" id="modal-serie" class="form-control" placeholder="Ingrese o escanee el número de serie...">
+            <button type="button" id="btn-verificar-serie" class="btn btn-dark fw-bold px-4">Buscar</button>
+          </div>
+          <div id="modal-msg-serie" class="mt-2 small fw-bold d-none"></div>
+        </div>
+
+        <!-- 2. Formulario Restante (Oculto hasta buscar serie) -->
+        <div id="modal-formulario-tarea" class="d-none">
+          
+          <!-- Datos técnicos (Solo si es nuevo) -->
+          <div id="seccion-amortiguador-nuevo" class="bg-white p-3 rounded border shadow-sm mb-4 d-none">
+            <h6 class="fw-bold text-primary mb-3"><i class="bi bi-gear"></i> Datos de la Pieza Nueva</h6>
+            <div class="row g-3">
+
+              <div class="col-md-6">
+                <label class="form-label small fw-bold">Ficha Técnica</label>
+                <select id="modal-ficha" class="form-select form-select-sm">
+                  <option value="">Seleccione un modelo...</option>
+                  {% for ficha in fichas %}
+                  <option value="{{ ficha.id }}">[{{ ficha.nroseriegenerico }}] {{ ficha.nombregenerico }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+          </div>
+
+
+          <!-- Operarios (Cards) -->
+          <div class="bg-white p-3 rounded border shadow-sm mb-2">
+            <h6 class="fw-bold text-dark mb-3"><i class="bi bi-people"></i> Asignar Operario</h6>
+            <div class="row g-3" style="max-height: 250px; overflow-y: auto;">
+              {% for operario in operarios %}
+              <div class="col-md-6">
+                <input type="radio" name="modal_operario_radio" id="op_{{ operario.id }}" value="{{ operario.id }}" class="d-none operator-radio" />
+                <label class="card operator-card h-100 border-2" for="op_{{ operario.id }}">
+                  <div class="card-body p-3">
+                    <div class="fw-bold fs-6 text-dark">{{ operario.nombre }} {{ operario.apellido }}</div>
+                    <small class="text-muted d-block mb-2">Legajo: {{ operario.legajo }}</small>
+                    
+                    <!-- AGREGADO: id y data-base-count para control dinámico -->
+                    <span id="badge-op-{{ operario.id }}" class="badge {% if operario.tareas_pendientes > 5 %}bg-warning text-dark{% else %}bg-info text-dark{% endif %} w-100 py-2 badge-operario" data-base-count="{{ operario.tareas_pendientes }}">
+                      <i class="bi bi-inbox"></i> <span id="count-op-{{ operario.id }}">{{ operario.tareas_pendientes }}</span> activas
+                    </span>
+                    
+                  </div>
+                </label>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+
+        </div>
+      </div>
+      <div class="modal-footer bg-white">
+        <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" id="btn-guardar-tarea" class="btn btn-primary px-4 fw-bold d-none">Guardar Tarea</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SCRIPT DE GESTIÓN EN MEMORIA LOCAL CON JAVASCRIPT -->
+<script>
+  // 1. Variables Globales
+  let tareasMemoria = [];
+  const csrfToken = '{{ csrf_token }}';
+  let myModal;
+
+  // 2. Inicialización segura cuando carga la página
+  document.addEventListener('DOMContentLoaded', function() {
+    myModal = new bootstrap.Modal(document.getElementById('modalTarea'));
+
+    // --- PASO 1: BÚSQUEDA Y MANEJO DEL CLIENTE ---
+    document.getElementById('btn-buscar-cliente').addEventListener('click', function() {
+      const dni = document.getElementById('input-dni').value.trim();
+      if (!dni) return alert("Ingrese un DNI válido.");
+
+      fetch('{% url "crear_pedido_dinamico" %}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': csrfToken },
+        body: JSON.stringify({ accion: 'verificar_cliente', dni: dni })
+      })
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById('form-cliente-container').classList.remove('d-none');
+        const msg = document.getElementById('msg-cliente');
+        
+        if (data.encontrado) {
+          msg.className = "alert alert-success py-2 small fw-bold mb-3";
+          msg.innerHTML = '<i class="bi bi-check-circle-fill"></i> Cliente registrado encontrado. Puede modificar sus datos si lo desea.';
+          document.getElementById('input-nombre').value = data.nombre;
+          document.getElementById('input-apellido').value = data.apellido;
+          document.getElementById('input-correo').value = data.correo;
+          document.getElementById('input-telefono').value = data.telefono;
+        } else {
+          msg.className = "alert alert-warning py-2 small fw-bold mb-3";
+          msg.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> Cliente nuevo. Complete los datos obligatorios.';
+          document.getElementById('input-nombre').value = '';
+          document.getElementById('input-apellido').value = '';
+          document.getElementById('input-correo').value = '';
+          document.getElementById('input-telefono').value = '';
+        }
+      })
+      .catch(err => console.error("Error al buscar cliente:", err));
+    });
+
+    // --- CONTINUAR AL PASO 2 ---
+    document.getElementById('btn-continuar-paso2').addEventListener('click', function() {
+      const nombre = document.getElementById('input-nombre').value.trim();
+      const apellido = document.getElementById('input-apellido').value.trim();
+      const tel = document.getElementById('input-telefono').value.trim();
+      
+      if(!nombre || !apellido || !tel) {
+        return alert("El nombre, apellido y teléfono son obligatorios.");
+      }
+
+      document.getElementById('sidebar-nombre').innerText = `${nombre} ${apellido}`;
+      document.getElementById('sidebar-dni').innerText = `DNI: ${document.getElementById('input-dni').value}`;
+      document.getElementById('sidebar-correo').innerText = document.getElementById('input-correo').value || 'Sin correo';
+      document.getElementById('sidebar-telefono').innerText = tel;
+
+      document.getElementById('step-1-cliente').classList.add('d-none');
+      document.getElementById('step-2-pedido').classList.remove('d-none');
+      renderGridTareas();
+      if (tareasMemoria.length === 0) {
+      abrirModalNuevaTarea();
+    }
+    });
+
+    // --- VERIFICAR AMORTIGUADOR EN EL MODAL ---
+    document.getElementById('btn-verificar-serie').addEventListener('click', async function() {
+      const serie = document.getElementById('modal-serie').value.trim().toUpperCase();
+      if (!serie) return alert("Ingrese el número de serie.");
+
+      const editIndex = parseInt(document.getElementById('edit-index').value);
+      const duplicado = tareasMemoria.findIndex(t => t.nroSerie.toUpperCase() === serie);
+      
+      if (duplicado !== -1 && duplicado !== editIndex) {
+        const msg = document.getElementById('modal-msg-serie');
+        msg.className = "mt-2 small fw-bold text-danger";
+        msg.innerHTML = '<i class="bi bi-x-circle-fill"></i> Esta serie ya está en la lista actual del pedido.';
+        msg.classList.remove('d-none');
+        return;
+      }
+
+      const res = await fetch('{% url "crear_pedido_dinamico" %}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': csrfToken },
+        body: JSON.stringify({ accion: 'verificar_amortiguador', serie: serie })
+      });
+      const data = await res.json();
+
+      const msg = document.getElementById('modal-msg-serie');
+      msg.classList.remove('d-none');
+      const formTarea = document.getElementById('modal-formulario-tarea');
+      const secNuevo = document.getElementById('seccion-amortiguador-nuevo');
+      
+      formTarea.classList.remove('d-none');
+      document.getElementById('btn-guardar-tarea').classList.remove('d-none');
+
+      if (data.encontrado) {
+        msg.className = "mt-2 small fw-bold text-success";
+        msg.innerHTML = `<i class="bi bi-check-circle-fill"></i> Amortiguador registrado. Modelo: ${data.ficha_nombre}  ${data.ficha_nroserie}`;
+        secNuevo.classList.add('d-none');
+        document.getElementById('modal-ficha').value = data.ficha_id;
+
+      } else {
+        msg.className = "mt-2 small fw-bold text-info";
+        msg.innerHTML = `<i class="bi bi-info-circle-fill"></i> Pieza nueva. Seleccione su modelo`;
+        secNuevo.classList.remove('d-none');
+        document.getElementById('modal-ficha').value = '';
+      }
+    });
+
+    // --- GUARDAR TAREA EN LA MEMORIA ---
+    document.getElementById('btn-guardar-tarea').addEventListener('click', function() {
+      const serie = document.getElementById('modal-serie').value.trim().toUpperCase();
+      const opRadio = document.querySelector('input[name="modal_operario_radio"]:checked');
+      const secNuevo = document.getElementById('seccion-amortiguador-nuevo');
+      
+      if (!opRadio) return alert("Seleccione un operario.");
+      if (!secNuevo.classList.contains('d-none') && !document.getElementById('modal-ficha').value) {
+        return alert("Seleccione la ficha técnica de la pieza nueva.");
+      }
+
+      const operarioNombre = opRadio.nextElementSibling.querySelector('.fs-6').innerText;
+
+      const tarea = {
+        nroSerie: serie,
+
+        operarioId: opRadio.value,
+        operarioNombre: operarioNombre,
+        fichaId: document.getElementById('modal-ficha').value,
+        esNuevo: !secNuevo.classList.contains('d-none')
+      };
+
+      const editIndex = parseInt(document.getElementById('edit-index').value);
+      if (editIndex > -1) {
+        tareasMemoria[editIndex] = tarea;
+      } else {
+        tareasMemoria.push(tarea);
+      }
+
+      myModal.hide();
+      renderGridTareas();
+    });
+
+    // --- ENVÍO FINAL (ATÓMICO AL BACKEND) ---
+    document.getElementById('btn-confirmar-pedido').addEventListener('click', function() {
+      this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Guardando...';
+      this.disabled = true;
+
+      const payload = {
+        accion: 'guardar_pedido',
+        dni: document.getElementById('input-dni').value.trim(),
+        nombre_cliente: document.getElementById('input-nombre').value,
+        apellido_cliente: document.getElementById('input-apellido').value,
+        correo_cliente: document.getElementById('input-correo').value,
+        telefono_cliente: document.getElementById('input-telefono').value,
+        tareas: tareasMemoria
+      };
+
+      fetch('{% url "crear_pedido_dinamico" %}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': csrfToken },
+        body: JSON.stringify(payload)
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'success') {
+          window.location.href = data.redirect_url;
+        } else {
+          alert('Error: ' + data.message);
+          this.innerHTML = '<i class="bi bi-check2-all me-1"></i> Confirmar Asignaciones';
+          this.disabled = false;
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        alert('Error de conexión.');
+        this.innerHTML = '<i class="bi bi-check2-all me-1"></i> Confirmar Asignaciones';
+        this.disabled = false;
+      });
+    });
+  }); // Fin de DOMContentLoaded
+
+  // --- FUNCIONES GLOBALES ---
+
+  // NUEVO: Función para actualizar badges (globos) de los operarios dinámicamente
+  function actualizarContadoresOperarios() {
+    document.querySelectorAll('.badge-operario').forEach(badge => {
+      let baseCount = parseInt(badge.getAttribute('data-base-count'));
+      let opId = badge.id.replace('badge-op-', '');
+      let countSpan = document.getElementById('count-op-' + opId);
+      
+      let tareasEnMemoria = tareasMemoria.filter(t => t.operarioId === opId).length;
+      let total = baseCount + tareasEnMemoria;
+      countSpan.innerText = total;
+      
+      if (total > 5) {
+        badge.classList.remove('bg-info');
+        badge.classList.add('bg-warning');
+      } else {
+        badge.classList.remove('bg-warning');
+        badge.classList.add('bg-info');
+      }
+    });
+  }
+
+  function volverPaso1() {
+    document.getElementById('step-2-pedido').classList.add('d-none');
+    document.getElementById('step-1-cliente').classList.remove('d-none');
+  }
+
+  function abrirModalNuevaTarea() {
+    document.getElementById('modalTareaTitulo').innerText = "Agregar Nueva Tarea";
+    document.getElementById('edit-index').value = "-1";
+    document.getElementById('modal-serie').value = '';
+    document.getElementById('modal-serie').disabled = false;
+    document.getElementById('btn-verificar-serie').classList.remove('d-none');
+    
+    document.getElementById('modal-formulario-tarea').classList.add('d-none');
+    document.getElementById('btn-guardar-tarea').classList.add('d-none');
+    document.getElementById('modal-msg-serie').classList.add('d-none');
+    
+    document.querySelectorAll('input[name="modal_operario_radio"]').forEach(r => r.checked = false);
+
+    myModal.show();
+  }
+
+  function renderGridTareas() {
+    const grid = document.getElementById('tareas-grid');
+    const btnConfirmar = document.getElementById('btn-confirmar-pedido');
+    
+    grid.innerHTML = '';
+    
+    if (tareasMemoria.length === 0) {
+      grid.innerHTML = `
+        <div class="col-12">
+          <div class="alert alert-light border border-dashed text-center py-5 rounded-4 w-100">
+            <i class="bi bi-inbox fs-1 text-muted d-block mb-3"></i>
+            <h6 class="text-secondary fw-bold">Sin Tareas Agregadas</h6>
+            <p class="text-muted small mb-0">Haga clic en "Agregar Tarea" para comenzar a armar el pedido.</p>
+          </div>
+        </div>`;
+      btnConfirmar.disabled = true;
+      actualizarContadoresOperarios(); // Llama la actualización
+      return;
+    }
+
+    btnConfirmar.disabled = false;
+
+    tareasMemoria.forEach((tarea, index) => {
+      
+      
+      grid.innerHTML += `
+        <div class="col">
+          <article class="card entity-card shadow-sm border-0 h-100 bg-white">
+            <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-start pt-3 px-3">
+              <div>
+                <div class="fw-bold fs-5 text-dark">Amortiguador: ${tarea.nroSerie} ${tarea.esNuevo ? '<span class="badge bg-info text-dark ms-1" style="font-size:0.6rem;">NUEVO</span>' : ''}</div>
+              </div>
+              
+            </div>
+            <div class="card-body p-3">
+              <ul class="list-group list-group-flush">
+                <li class="list-group-item bg-transparent px-0 py-2 d-flex justify-content-between">
+                  <span class="text-muted small fw-bold">Operario</span>
+                  <span class="fw-medium text-dark">${tarea.operarioNombre}</span>
+                </li>
+              </ul>
+            </div>
+            <div class="card-footer bg-light border-top p-2 d-flex gap-2">
+              <button class="btn btn-outline-warning btn-sm flex-grow-1 fw-bold" onclick="editarTarea(${index})"><i class="bi bi-pencil"></i> Editar</button>
+              <button class="btn btn-outline-danger btn-sm flex-grow-1 fw-bold" onclick="eliminarTarea(${index})"><i class="bi bi-trash"></i> Eliminar</button>
+            </div>
+          </article>
+        </div>
+      `;
+    });
+    
+    actualizarContadoresOperarios(); // Llama la actualización al final del render
+  }
+
+  function eliminarTarea(index) {
+    tareasMemoria.splice(index, 1);
+    renderGridTareas();
+  }
+
+  function editarTarea(index) {
+    const tarea = tareasMemoria[index];
+    document.getElementById('modalTareaTitulo').innerText = "Editar Tarea";
+    document.getElementById('edit-index').value = index;
+    
+    // Autollenamos la serie y simulamos el click de buscar
+    document.getElementById('modal-serie').value = tarea.nroSerie;
+    document.getElementById('modal-serie').disabled = true; 
+    document.getElementById('btn-verificar-serie').click();
+    
+    // Cuando el fetch termine, sobreescribimos los campos
+    setTimeout(() => {
+
+      const radio = document.getElementById(`op_${tarea.operarioId}`);
+      if(radio) radio.checked = true;
+      if(tarea.esNuevo) {
+        document.getElementById('modal-ficha').value = tarea.fichaId;
+      }
+    }, 500);
+    
+    myModal.show();
+  }
+</script>
+
+{% endblock %}

@@ -19,25 +19,170 @@
       <span class="badge {% if tarea.estado == 'por reparar' %}bg-warning text-dark{% elif tarea.estado == 'en reparacion' %}bg-info text-dark{% elif tarea.estado == 'terminada' %}bg-success{% else %}bg-secondary{% endif %} px-3 py-2 fs-6 rounded-pill">
         {{ tarea.estado|upper }}
       </span>
-      
     </div>
   </div>
 
   <!-- SECCIÓN: DIAGNÓSTICO TÉCNICO -->
   <div class="card shadow-sm border-0 rounded-3 mb-4">
     <div class="card-header bg-white border-bottom-0 pt-4 pb-0 px-4 d-flex justify-content-between align-items-center">
-      <h5 class="fw-bold  mb-4"><i class="fas fa-clipboard-check me-2"></i>Diagnóstico Técnico</h5>
-      {% if tarea.estado == 'pendiente' %}
-        <a href="{% url 'crear_o_editar_observacion' tarea.id %}" class="btn btn-sm btn-outline-primary rounded-pill px-3">
-          <i class="fas fa-edit"></i> {% if observacion %}Editar{% else %}Cargar{% endif %} Diagnóstico
-        </a>
-      {% endif %}
+      <h5 class="fw-bold mb-4"><i class="fas fa-clipboard-check me-2"></i>Diagnóstico Técnico</h5>
     </div>
     
     <div class="card-body p-4">
-      {% if observacion %}
+      
+      <!-- SI LA TAREA ESTÁ PENDIENTE: SIEMPRE MUESTRA EL FORMULARIO (Nuevo o Edición) -->
+      {% if tarea.estado == 'pendiente' %}
+        
+        <div class="p-0 border-0">
+          <form method="post" id="form-diagnostico">
+            {% csrf_token %}
+            
+            <!-- PASO 1: CARGA DE DATOS -->
+            <div id="seccion-carga" class="p-4 bg-light rounded border position-relative">
+              
+              {% if tarea.devuelta %}
+              <div class="alert alert-danger shadow-sm border-danger border-opacity-50 mb-4">
+                <h6 class="fw-bold mb-1"><i class="fas fa-exclamation-circle me-1"></i> Tarea devuelta por el Encargado</h6>
+                <p class="small mb-0">Corregí el diagnóstico a continuación. Podés leer el motivo del rechazo en la caja de <em>"Registro del Sistema"</em> a la derecha.</p>
+              </div>
+              {% endif %}
+
+              <h6 class="text-primary fw-bold mb-3">
+                <i class="fas fa-edit me-2"></i>{% if observacion %}Corregir Diagnóstico{% else %}Cargar Nuevo Diagnóstico{% endif %}
+              </h6>
+              
+              <div class="row g-4">
+                <!-- COLUMNA IZQUIERDA -->
+                <div class="col-lg-6 border-end pe-lg-4">
+                  <div class="mb-4">
+                    <label class="form-label fw-bold small text-uppercase">Sugerencia Técnica</label>
+                    <select name="sugerencia_tipo" id="id_sugerencia" class="form-select" required>
+                      <option value="control" {% if observacion.sugerencia_tecnica == 'control' %}selected{% endif %}>Solo Control (Aceptable)</option>
+                      <option value="reparacion" {% if observacion.sugerencia_tecnica == 'reparacion' %}selected{% endif %}>Reparación (Requiere materiales)</option>
+                    </select>
+                  </div>
+                  
+                  <div id="div-materiales" style="display:none;">
+                    <label class="form-label fw-bold small text-uppercase text-primary">Materiales Sugeridos</label>
+                    <div class="table-responsive bg-white rounded border">
+                      <table class="table table-sm table-hover align-middle mb-0">
+                        <thead class="table-light text-muted small">
+                          <tr>
+                            <th class="ps-2">Material</th>
+                            <th class="text-center">Máx</th>
+                            <th style="width: 100px;" class="pe-2">Cant.</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {% for item in materiales_sugeribles %}
+                          <tr>
+                            <td class="ps-2">{{ item.material_tipo }}</td>
+                            <td class="text-center text-muted">{{ item.cantidad_maxima }}</td>
+                            <td class="pe-2">
+                              <input type="hidden" name="material_id[]" value="{{ item.material_id }}">
+                              <!-- Se pre-llena con la cantidad sugerida si ya existía -->
+                              <input type="number" name="cantidadrecomendada[]" min="0" max="{{ item.cantidad_maxima }}" value="{{ item.cantidad_sugerida|default:'0' }}" class="form-control form-control-sm text-center">
+                            </td>
+                          </tr>
+                          {% empty %}
+                          <tr>
+                            <td colspan="3" class="text-center text-muted small py-2">No hay materiales asociados a la ficha técnica.</td>
+                          </tr>
+                          {% endfor %}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- COLUMNA DERECHA -->
+                <div class="col-lg-6 ps-lg-4">
+                  <div class="alert alert-info py-2 mb-3 small">
+                    <i class="fas fa-info-circle me-1"></i> <strong>Rango Esperado:</strong> 
+                    <span class="badge bg-white text-dark border ms-1">{{ tarea.amortiguador.fichaamortiguador.valor_minimo }} N</span> a 
+                    <span class="badge bg-white text-dark border">{{ tarea.amortiguador.fichaamortiguador.valor_maximo }} N</span>
+                  </div>
+                  
+                  <div class="mb-3">
+                    <label class="form-label fw-bold small text-uppercase">Valor Medido Inicial (Newtons) *</label>
+                    <input type="number" step="0.01" min="0" id="valordiagrama" name="valordiagrama" class="form-control form-control-lg" required placeholder="Ej: 15.50"
+                           value="{% if observacion %}{{ observacion.valor_diagrama|stringformat:'s'|cut:',' }}{% endif %}"
+                           data-min="{{ tarea.amortiguador.fichaamortiguador.valor_minimo|stringformat:'f' }}" 
+                           data-max="{{ tarea.amortiguador.fichaamortiguador.valor_maximo|stringformat:'f' }}">
+                  </div>
+                  
+                  <div class="mb-3">
+                    <label class="form-label fw-bold small text-uppercase">Comentarios del Operario</label>
+                    <textarea name="detalle_operario" id="detalle_operario" class="form-control" rows="3" placeholder="Estado físico, ruidos, etc.">{% if observacion %}{{ observacion.detalle_operario }}{% endif %}</textarea>
+                  </div>
+
+                  <!-- Muestra el historial si la tarea fue devuelta -->
+                  {% if observacion and observacion.detalle_autogenerado %}
+                  <div class="mt-4">
+                    <div class="text-uppercase fw-bold text-secondary mb-2" style="font-size: 0.75rem;"><i class="bi bi-robot me-1"></i>Registro del Sistema / Rechazos</div>
+                    <div class="bg-white text-dark border border-danger border-opacity-50 rounded p-2 font-monospace small" style="max-height: 120px; overflow-y: auto; white-space: pre-wrap;">{{ observacion.detalle_autogenerado }}</div>
+                  </div>
+                  {% endif %}
+                </div>
+              </div>
+
+              <div class="d-flex justify-content-end pt-3 border-top mt-3">
+                <button type="button" id="btn-guardar-memoria" class="btn btn-primary px-4 rounded-pill fw-bold">
+                  Guardar Diagnóstico
+                </button>
+              </div>
+            </div>
+
+            <!-- PASO 2: RESUMEN EN MEMORIA -->
+            <div id="seccion-resumen" class="d-none">
+              <div class="row g-4">
+                <div class="col-md-5">
+                  <div class="p-3 bg-light rounded-3 h-100 border position-relative">
+                    <span class="position-absolute top-0 end-0 badge bg-warning text-dark m-2 shadow-sm"><i class="fas fa-memory"></i> Sin guardar</span>
+                    
+                    <p class="mb-1 text-muted small text-uppercase fw-bold">Sugerencia Operativa</p>
+                    <p id="resumen-sugerencia" class="fs-5 fw-bold mb-3 text-uppercase"></p>
+                    
+                    <p class="mb-1 text-muted small text-uppercase fw-bold">Valor Inicial en Máquina</p>
+                    <p class="fs-5 mb-1"><span id="resumen-diagrama"></span> N</p>
+                    <small class="text-muted d-block mb-2">Rango: {{ tarea.amortiguador.fichaamortiguador.valor_minimo }} N - {{ tarea.amortiguador.fichaamortiguador.valor_maximo }} N</small>
+                    
+                    <span id="badge-rango" class="badge"></span>
+                  </div>
+                </div>
+
+                <div class="col-md-7">
+                  <div class="p-3 bg-light rounded-3 h-100 border">
+                    <div class="mb-3">
+                      <p class="mb-1 text-muted small text-uppercase fw-bold"><i class="fas fa-comment-dots me-1"></i> Comentarios del Operario</p>
+                      <p id="resumen-comentario" class="mb-0 text-dark font-monospace"></p>
+                    </div>
+                    
+                    <div id="resumen-materiales-container" class="mt-4 pt-3 border-top d-none">
+                      <p class="mb-2 text-muted small text-uppercase fw-bold"><i class="fas fa-boxes me-1"></i> Materiales Sugeridos</p>
+                      <ul id="resumen-materiales-list" class="list-group list-group-flush border rounded-3 bg-white small">
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
+                <button type="button" id="btn-editar-memoria" class="btn btn-outline-secondary rounded-pill px-4">
+                  <i class="fas fa-arrow-left me-1"></i> Editar Diagnóstico
+                </button>
+                <button type="submit" name="accion" value="terminarobservacioncontrol" class="btn btn-success px-5 rounded-pill fw-bold shadow-sm">
+                  <i class="fas fa-paper-plane me-1"></i> Enviar a Revisión
+                </button>
+              </div>
+            </div>
+
+          </form>
+        </div>
+
+      <!-- SI LA TAREA ESTA AVANZADA (No Revisada, Por Reparar, Terminada): MUESTRA SOLO LECTURA -->
+      {% elif observacion %}
         <div class="row g-4">
-          <!-- Datos de la Máquina -->
           <div class="col-md-5">
             <div class="p-3 bg-light rounded-3 h-100 border">
               <p class="mb-1 text-muted small text-uppercase fw-bold">Sugerencia Operativa</p>
@@ -53,7 +198,6 @@
                 <span class="badge bg-danger"><i class="fas fa-times"></i> Inicial Fuera de Rango</span>
               {% endif %}
 
-              <!-- VALOR FINAL SI EXISTE -->
               {% if observacion.valor_diagrama_final %}
               <hr class="my-3 border-secondary border-opacity-25">
               <p class="mb-1 text-success small text-uppercase fw-bold">Valor Final (Post-Reparación)</p>
@@ -62,7 +206,6 @@
             </div>
           </div>
 
-          <!-- Comentarios -->
           <div class="col-md-7">
             <div class="mb-3">
               <p class="mb-1 text-muted small text-uppercase fw-bold"><i class="fas fa-comment-dots me-1"></i> Comentarios del Operario</p>
@@ -70,39 +213,21 @@
             </div>
             
             <div class="mt-4">
-              
-                <i class="fas fa-history"></i> Ver Bitácora del Sistema
-              
-              
-                <div class="card card-body bg-light border-0 small font-monospace text-muted py-2 px-3">
-                  {{ observacion.detalle_autogenerado|linebreaks }}
-                  <div class="mt-2 pt-2 border-top">Registrado: {{ observacion.fecha|date:"d/m/Y H:i" }}</div>
-                
+              <i class="fas fa-history"></i> Ver Bitácora del Sistema
+              <div class="card card-body bg-light border-0 small font-monospace text-muted py-2 px-3 mt-2" style="max-height: 150px; overflow-y: auto;">
+                {{ observacion.detalle_autogenerado|linebreaks }}
+                <div class="mt-2 pt-2 border-top">Registrado: {{ observacion.fecha|date:"d/m/Y H:i" }}</div>
               </div>
             </div>
           </div>
         </div>
-
-        <!-- Botón de Confirmación para enviar a revisión -->
-        {% if tarea.estado == 'pendiente' %}
-        <div class="mt-4 pt-3 border-top d-flex justify-content-end align-items-center gap-3">
-          <span class="text-muted small">¿El diagnóstico está listo para la revisión del encargado?</span>
-          <form action="" method="post" class="m-0">
-            {% csrf_token %}
-            <button type="submit" name="accion" value="terminarobservacioncontrol" class="btn btn-primary px-4 rounded-pill">
-              <i class="fas fa-paper-plane me-1"></i> Enviar a Revisión
-            </button>
-          </form>
-        </div>
-        {% endif %}
-
       {% else %}
-        <div class="text-center py-5 text-muted">
-          <i class="fas fa-file-signature fa-3x mb-3 text-light"></i>
-          <h5>No hay diagnóstico registrado</h5>
-          <p class="mb-0">Realiza la inspección y carga el diagnóstico para continuar.</p>
+        <div class="alert alert-warning border-0 bg-warning-subtle text-dark text-center py-4 mb-0">
+          <i class="bi bi-hourglass-split fs-2 d-block mb-2"></i>
+          Aún no se ha cargado un diagnóstico para esta tarea.
         </div>
       {% endif %}
+
     </div>
   </div>
 
@@ -150,7 +275,6 @@
         </table>
       </div>
 
-      <!-- ESTADO: POR REPARAR (Botón de Reserva) -->
       {% if tarea.estado == 'por reparar' %}
         {% if materiales_faltantes %}
         <div class="alert alert-danger border-danger border-opacity-25 mt-4 d-flex align-items-center" role="alert">
@@ -174,17 +298,14 @@
         </form>
       {% endif %}
 
-      <!-- ESTADO: EN REPARACIÓN (Formulario Final y Diagrama) -->
       {% if tarea.estado == 'en reparacion' %}
         <div class="mt-4 p-4 bg-light rounded-3 border border-success border-opacity-25">
           <h6 class="text-success fw-bold mb-3"><i class="fas fa-flag-checkered me-1"></i> Control de Calidad Final</h6>
           <div class="row align-items-center">
-            
             <div class="col-md-6">
               <label for="valor_diagrama_final" class="form-label text-dark fw-medium small mb-1">Resultado de Máquina (Newtons) *</label>
               <div class="input-group">
                 <span class="input-group-text bg-white"><i class="fas fa-tachometer-alt text-muted"></i></span>
-                <!-- Aquí pasamos los data-min y data-max para el JS -->
                 <input type="number" step="0.01" class="form-control form-control-lg" id="valor_diagrama_final" name="valor_diagrama_final" 
                        data-min="{{ tarea.amortiguador.fichaamortiguador.valor_minimo|stringformat:'f' }}" 
                        data-max="{{ tarea.amortiguador.fichaamortiguador.valor_maximo|stringformat:'f' }}" 
@@ -204,47 +325,9 @@
                 <i class="fas fa-check"></i> Finalizar Tarea
               </button>
             </div>
-            
           </div>
         </div>
       </form>
-      
-      <!-- Script de Validación Elegante -->
-      <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const inputDiagrama = document.getElementById('valor_diagrama_final');
-            const btnFinalizar = document.getElementById('btn-finalizar-tarea');
-            const feedback = document.getElementById('diagrama-feedback');
-
-            if (inputDiagrama && btnFinalizar) {
-                // Leemos del data-attribute (usamos replace por si Django mandó comas)
-                const minVal = parseFloat(inputDiagrama.dataset.min.replace(',', '.'));
-                const maxVal = parseFloat(inputDiagrama.dataset.max.replace(',', '.'));
-
-                inputDiagrama.addEventListener('input', function() {
-                    const val = parseFloat(this.value.replace(',', '.'));
-                    
-                    if (!isNaN(val) && val >= minVal && val <= maxVal) {
-                        btnFinalizar.disabled = false;
-                        inputDiagrama.classList.remove('is-invalid', 'border-danger');
-                        inputDiagrama.classList.add('is-valid', 'border-success', 'border-2');
-                        feedback.classList.add('d-none');
-                    } else {
-                        btnFinalizar.disabled = true;
-                        inputDiagrama.classList.remove('is-valid', 'border-success', 'border-2');
-                        
-                        if (this.value !== '') {
-                            inputDiagrama.classList.add('is-invalid', 'border-danger');
-                            feedback.classList.remove('d-none');
-                        } else {
-                            inputDiagrama.classList.remove('is-invalid', 'border-danger');
-                            feedback.classList.add('d-none');
-                        }
-                    }
-                });
-            }
-        });
-      </script>
       {% endif %}
     </div>
   </div>
@@ -289,4 +372,145 @@
   </div>
 
 </div>
+
+<!-- SCRIPT DE VALIDACIONES (MEMORIA JS Y DIAGRAMA FINAL) -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        
+        // -------------------------------------------------------------
+        // 1. LÓGICA DEL DIAGNÓSTICO EN MEMORIA (Estado "pendiente")
+        // -------------------------------------------------------------
+        const sugerenciaSelect = document.getElementById('id_sugerencia');
+        const materialesDiv = document.getElementById('div-materiales');
+
+        if (sugerenciaSelect && materialesDiv) {
+            function toggleMateriales() {
+                if (sugerenciaSelect.value === 'reparacion') {
+                    materialesDiv.style.display = 'block';
+                } else {
+                    materialesDiv.style.display = 'none';
+                    const inputs = materialesDiv.querySelectorAll('input[type="number"]');
+                    inputs.forEach(input => input.value = 0);
+                }
+            }
+            sugerenciaSelect.addEventListener('change', toggleMateriales);
+            toggleMateriales();
+        }
+
+        const btnGuardar = document.getElementById('btn-guardar-memoria');
+        const btnEditar = document.getElementById('btn-editar-memoria');
+        const formDiagnostico = document.getElementById('form-diagnostico');
+        const seccionCarga = document.getElementById('seccion-carga');
+        const seccionResumen = document.getElementById('seccion-resumen');
+        
+        const inputValor = document.getElementById('valordiagrama');
+        const badgeRango = document.getElementById('badge-rango');
+        
+        if (btnGuardar) {
+            btnGuardar.addEventListener('click', function() {
+                // Validación nativa HTML5 (required, min, max en inputs)
+                if (!formDiagnostico.checkValidity()) {
+                    formDiagnostico.reportValidity();
+                    return;
+                }
+                
+                // Extraer valores para el rango
+                const valorIngresado = parseFloat(inputValor.value.replace(',', '.'));
+                const minFicha = parseFloat(inputValor.dataset.min.replace(',', '.'));
+                const maxFicha = parseFloat(inputValor.dataset.max.replace(',', '.'));
+
+                // 1. Llenar textos base
+                const textoSugerencia = sugerenciaSelect.options[sugerenciaSelect.selectedIndex].text;
+                document.getElementById('resumen-sugerencia').innerText = textoSugerencia;
+                document.getElementById('resumen-diagrama').innerText = inputValor.value;
+
+                // 2. Llenar comentarios
+                const comentarioInput = document.getElementById('detalle_operario').value.trim();
+                document.getElementById('resumen-comentario').innerText = comentarioInput ? comentarioInput : 'Sin comentarios adicionales.';
+
+                // 3. Evaluar y mostrar materiales sugeridos
+                const contenedorMat = document.getElementById('resumen-materiales-container');
+                const listaMat = document.getElementById('resumen-materiales-list');
+                listaMat.innerHTML = ''; // Limpiar lista
+                
+                if (sugerenciaSelect.value === 'reparacion') {
+                    const filas = document.querySelectorAll('#div-materiales tbody tr');
+                    let hayMateriales = false;
+                    
+                    filas.forEach(fila => {
+                        const nombreMat = fila.cells[0]?.innerText;
+                        const inputCant = fila.querySelector('input[type="number"]');
+                        if (inputCant && parseInt(inputCant.value) > 0) {
+                            hayMateriales = true;
+                            const li = document.createElement('li');
+                            li.className = 'list-group-item bg-white d-flex justify-content-between align-items-center py-2';
+                            li.innerHTML = `${nombreMat} <span class="badge bg-secondary rounded-pill px-3">${inputCant.value}</span>`;
+                            listaMat.appendChild(li);
+                        }
+                    });
+                    
+                    if(hayMateriales) {
+                        contenedorMat.classList.remove('d-none');
+                    } else {
+                        contenedorMat.classList.add('d-none');
+                    }
+                } else {
+                    contenedorMat.classList.add('d-none');
+                }
+
+                // 4. Feedback visual de rango (Exactamente igual que la DB)
+                if (valorIngresado >= minFicha && valorIngresado <= maxFicha) {
+                    badgeRango.className = 'badge bg-success';
+                    badgeRango.innerHTML = '<i class="fas fa-check"></i> Inicial Aceptable';
+                } else {
+                    badgeRango.className = 'badge bg-danger';
+                    badgeRango.innerHTML = '<i class="fas fa-times"></i> Inicial Fuera de Rango';
+                }
+
+                // 5. Cambiar visualización a Modo Resumen
+                seccionCarga.classList.add('d-none');
+                seccionResumen.classList.remove('d-none');
+            });
+
+            btnEditar.addEventListener('click', function() {
+                seccionResumen.classList.add('d-none');
+                seccionCarga.classList.remove('d-none');
+            });
+        }
+
+        // -------------------------------------------------------------
+        // 2. LÓGICA DEL DIAGNÓSTICO FINAL (Estado "en reparacion")
+        // -------------------------------------------------------------
+        const inputDiagramaFinal = document.getElementById('valor_diagrama_final');
+        const btnFinalizar = document.getElementById('btn-finalizar-tarea');
+        const feedbackFinal = document.getElementById('diagrama-feedback');
+
+        if (inputDiagramaFinal && btnFinalizar) {
+            const minVal = parseFloat(inputDiagramaFinal.dataset.min.replace(',', '.'));
+            const maxVal = parseFloat(inputDiagramaFinal.dataset.max.replace(',', '.'));
+
+            inputDiagramaFinal.addEventListener('input', function() {
+                const val = parseFloat(this.value.replace(',', '.'));
+                
+                if (!isNaN(val) && val >= minVal && val <= maxVal) {
+                    btnFinalizar.disabled = false;
+                    inputDiagramaFinal.classList.remove('is-invalid', 'border-danger');
+                    inputDiagramaFinal.classList.add('is-valid', 'border-success', 'border-2');
+                    feedbackFinal.classList.add('d-none');
+                } else {
+                    btnFinalizar.disabled = true;
+                    inputDiagramaFinal.classList.remove('is-valid', 'border-success', 'border-2');
+                    
+                    if (this.value !== '') {
+                        inputDiagramaFinal.classList.add('is-invalid', 'border-danger');
+                        feedbackFinal.classList.remove('d-none');
+                    } else {
+                        inputDiagramaFinal.classList.remove('is-invalid', 'border-danger');
+                        feedbackFinal.classList.add('d-none');
+                    }
+                }
+            });
+        }
+    });
+</script>
 {% endblock %}

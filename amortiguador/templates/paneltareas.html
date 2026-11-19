@@ -42,7 +42,6 @@
           <select id="sortSelect" class="form-select">
             <option value="recientes">Última actualización (Más recientes)</option>
             <option value="antiguas">Última actualización (Más antiguas)</option>
-            <option value="prioridad">Prioridad (Alta primero)</option>
             <option value="id_desc">Nº de Tarea (Mayor a menor)</option>
           </select>
         </div>
@@ -59,7 +58,7 @@
     <div class="col tarea-item" 
          data-id="{{ tarea.id }}"
          data-fecha="{% if tarea.fecha_ultimo_cambio %}{{ tarea.fecha_ultimo_cambio|date:'YmdHis' }}{% else %}0{% endif %}"
-         data-prioridad="{% if tarea.prioridad == 'alta' %}3{% elif tarea.prioridad == 'media' %}2{% else %}1{% endif %}">
+         >
          
       <article class="card tarea-card {% if tarea.devuelta %}border-danger shadow-sm{% endif %}">
         
@@ -103,14 +102,7 @@
           <div class="d-flex justify-content-between align-items-baseline mb-2">
             <span class="fw-medium text-dark">Tipo: {{ tarea.tipoTarea|default:'A definir'|capfirst }}</span>
             
-            {% if tarea.prioridad|lower == 'alta' %}
-              <span class="badge text-bg-danger">Prioridad Alta</span>
-            {% elif tarea.prioridad|lower == 'media' %}
-              <span class="badge text-bg-warning">Prioridad Media</span>
-            {% else %}
-              <span class="badge text-bg-info text-white">Prioridad Baja</span>
-            {% endif %}
-          </div>
+
           
           <div class="small text-muted mb-3">
             Cliente: {{ tarea.pedido.cliente.nombre }} {{ tarea.pedido.cliente.apellido }}
@@ -192,15 +184,7 @@
           // Ordenar por fecha (Menor a mayor)
           return parseInt(a.dataset.fecha) - parseInt(b.dataset.fecha);
         }
-        else if (sortBy === 'prioridad') {
-          // Ordenar por prioridad (3 a 1). En caso de empate, usar fecha reciente.
-          let prioA = parseInt(a.dataset.prioridad);
-          let prioB = parseInt(b.dataset.prioridad);
-          if (prioA !== prioB) {
-            return prioB - prioA; 
-          }
-          return parseInt(b.dataset.fecha) - parseInt(a.dataset.fecha);
-        }
+
         else if (sortBy === 'id_desc') {
           // Ordenar por ID de la tarea
           return parseInt(b.dataset.id) - parseInt(a.dataset.id);

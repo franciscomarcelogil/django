@@ -2,59 +2,27 @@
 
 {% block content %}
 <style>
-  .modal-header {
-    background-color: #ffffff !important;
-    border-bottom: 1px solid #dee2e6 !important;
-  }
-  .modal-title {
-    color: #212529 !important;
-    font-weight: 700 !important;
-  }
-  .btn-close {
-    filter: none !important;
-  }
+  .modal-header { background-color: #ffffff !important; border-bottom: 1px solid #dee2e6 !important; }
+  .modal-title { color: #212529 !important; font-weight: 700 !important; }
+  .btn-close { filter: none !important; }
   .sidebar-card, .main-card {
-    border: none;
-    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-    border-radius: 12px;
-    margin-bottom: 1.5rem;
-    overflow: hidden;
+    border: none; box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border-radius: 12px; margin-bottom: 1.5rem; overflow: hidden;
   }
   .sidebar-card .card-header, .main-card > .card-header {
-    background-color: transparent;
-    border-bottom: 1px solid rgba(0,0,0,.05);
-    padding: 1.25rem 1.5rem;
-    font-weight: 700;
+    background-color: transparent; border-bottom: 1px solid rgba(0,0,0,.05);
+    padding: 1.25rem 1.5rem; font-weight: 700;
   }
   
   /* ESTILOS NUEVOS PARA PRESUPUESTOS (Estilo Recibo Digital) */
   .receipt-table th {
-    background-color: #f8f9fa;
-    color: #6c757d;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    font-size: 0.75rem;
-    border-bottom: 2px solid #e9ecef;
-    padding: 1rem 1.5rem;
+    background-color: #f8f9fa; color: #6c757d; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.5px; font-size: 0.75rem; border-bottom: 2px solid #e9ecef; padding: 1rem 1.5rem;
   }
-  .receipt-table td {
-    vertical-align: middle;
-    padding: 1rem 1.5rem;
-    border-bottom: 1px dashed #e9ecef;
-  }
-  .receipt-table tbody tr:last-child td {
-    border-bottom: none;
-  }
-  .summary-box {
-    background-color: #f8f9fa;
-    border-top: 1px solid #e9ecef;
-    padding: 1.5rem;
-  }
-  .summary-box.success-theme {
-    background-color: #f0fdf4; /* Verde muy clarito */
-    border-top: 1px solid #d1fae5;
-  }
+  .receipt-table td { vertical-align: middle; padding: 1rem 1.5rem; border-bottom: 1px dashed #e9ecef; }
+  .receipt-table tbody tr:last-child td { border-bottom: none; }
+  .summary-box { background-color: #f8f9fa; border-top: 1px solid #e9ecef; padding: 1.5rem; }
+  .summary-box.success-theme { background-color: #f0fdf4; border-top: 1px solid #d1fae5; }
 </style>
 
 <div class="container-fluid mt-4 mb-5" style="max-width: 1400px;">
@@ -75,9 +43,8 @@
   </div>
 
   <div class="row g-4">
-    
+    <!-- COLUMNA IZQUIERDA -->
     <div class="col-lg-4 col-xl-3 d-flex flex-column">
-      
       <div class="card main-card">
         <div class="card-header d-flex justify-content-between align-items-center">
           <span class="text-dark fs-5"><i class="bi bi-box-seam text-primary me-2"></i>Resumen</span>
@@ -86,7 +53,7 @@
         <div class="card-body p-4">
           <div class="mb-3">
             <div class="text-uppercase fw-bold text-secondary mb-1" style="font-size: 0.7rem;">Creación</div>
-            <div class="fw-medium text-dark">{{ pedido.fechaingreso|date:"d/m/Y" }} - {{ pedido.horaingreso|time:"H:i" }}</div>
+            <div class="fw-medium text-dark">{{ pedido.fechaAsignacion|date:"d/m/Y - H:i" }}</div>
           </div>
           <div class="mb-4">
             <div class="text-uppercase fw-bold text-secondary mb-1" style="font-size: 0.7rem;">Última Modificación</div>
@@ -198,15 +165,27 @@
         </div>
       </div>
       {% endif %}
-
     </div>
 
+    <!-- COLUMNA DERECHA -->
     <div class="col-lg-8 col-xl-9">
       
       <div class="card main-card">
         <div class="card-header d-flex justify-content-between align-items-center">
           <span class="text-dark fs-5"><i class="bi bi-list-task text-primary me-2"></i>Tareas Asociadas</span>
           <div class="d-flex gap-2">
+            <!-- BOTÓN GUARDAR REVISIÓN (Aparece si estamos revisando) -->
+            {% if pedido.estado == 'revisado' %}
+              <form method="post" id="form-guardar-revision" class="m-0">
+                {% csrf_token %}
+                <input type="hidden" name="accion" value="guardar_revision_global">
+                <input type="hidden" name="decisiones" id="input-decisiones">
+                <button type="button" onclick="guardarRevision()" class="btn btn-success btn-sm fw-bold shadow-sm">
+                  <i class="bi bi-save me-1"></i> Guardar Revisión
+                </button>
+              </form>
+            {% endif %}
+            
             {% if pedido.estado == 'pendiente' %}
               <form method="post" class="m-0">
                 {% csrf_token %}
@@ -227,7 +206,7 @@
         <div class="card-body p-4 bg-light">
           <div class="row row-cols-1 row-cols-xl-2 g-3">
             {% for tarea in tareas %}
-            <div class="col">
+            <div class="col {% if tarea.estado == 'no revisada' %}task-no-revisada{% endif %}">
               <article class="card entity-card h-100 shadow-sm border-0" style="border-radius: 12px;">
                 <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-start gap-2 pt-3 px-3">
                   <div>
@@ -241,24 +220,18 @@
 
                 <div class="card-body d-flex flex-column gap-3 p-3 bg-white">
                   <div class="row g-2 small text-muted bg-light p-2 rounded border">
-                    <div class="col-7 border-end">
+                    <div class="col-4 border-end">
                       <div class="text-uppercase fw-bold text-secondary" style="font-size: 0.65rem;">Operario</div>
-                      <div class="fw-semibold text-dark text-truncate">{{ tarea.operario.nombre }} {{ tarea.operario.apellido }}</div>
+                      <div class="fw-semibold text-dark text-truncate" title="{{ tarea.operario.nombre }} {{ tarea.operario.apellido }}">{{ tarea.operario.nombre }}</div>
                     </div>
-                    <div class="col-5 ps-2">
-                      <div class="text-uppercase fw-bold text-secondary" style="font-size: 0.65rem;">Tipo / Prioridad</div>
+                    <div class="col-4 border-end ps-2">
+                      <div class="text-uppercase fw-bold text-secondary" style="font-size: 0.65rem;">Tipo</div>
                       <div class="fw-bold text-primary">{{ tarea.tipoTarea|default:'A definir'|capfirst }}</div>
-                      <div>
-                        {% if tarea.prioridad|lower == 'alta' %}<span class="text-danger fw-bold">🔴 Alta</span>
-                        {% elif tarea.prioridad|lower == 'media' %}<span class="text-warning text-dark fw-bold">🟡 Media</span>
-                        {% else %}<span class="text-info text-dark fw-bold">🟢 Baja</span>{% endif %}
-                      </div>
                     </div>
-                  </div>
-
-                  <div class="d-flex flex-wrap gap-1">
-                    <span class="badge text-bg-light border text-secondary fw-normal"><i class="bi bi-calendar-event me-1"></i>Asignada: {{ tarea.fechaAsignacion|date:"d/m/y" }}</span>
-                    {% if tarea.fechaLimite %}<span class="badge text-bg-light border text-danger fw-normal"><i class="bi bi-clock-history me-1"></i>Límite: {{ tarea.fechaLimite|date:"d/m/y" }}</span>{% endif %}
+                    <div class="col-4 ps-2">
+                      <div class="text-uppercase fw-bold text-secondary" style="font-size: 0.65rem;">Fuerza Inicial</div>
+                      <div class="fw-bold text-dark">{% if tarea.observacion %}{{ tarea.observacion.valor_diagrama }} N{% else %}-{% endif %}</div>
+                    </div>
                   </div>
 
                   {% if tarea.observacion and tarea.observacion.detalle_operario %}
@@ -282,34 +255,54 @@
                   </div>
                 </div>
 
-                <div class="card-footer bg-light border-top p-2 d-flex gap-1 flex-wrap">
-                  {% if tarea.estado == 'no revisada' and pedido.estado == 'revisado' %}
-                    <button type="button" class="btn btn-outline-danger btn-sm flex-grow-1" data-bs-toggle="modal" data-bs-target="#modalRechazarTarea{{ tarea.id }}">✗ Rechazar</button>
-                    <form method="post" class="flex-grow-1 m-0">
-                      {% csrf_token %}
-                      <input type="hidden" name="accion" value="aprobar_sugerencia_rapida">
-                      <input type="hidden" name="tarea_id" value="{{ tarea.id }}">
-                      <button type="submit" class="btn btn-success w-100 fw-bold btn-sm">✓ Aprobar</button>
-                    </form>
-                    <a href="{% url 'detalle_tarea' tarea.id %}" class="btn btn-outline-primary btn-sm w-100 mt-1">Detalles</a>
-                  {% else %}
+                <!-- FOOTER DE ACCIONES EN MEMORIA (Revisión) -->
+                {% if tarea.estado == 'no revisada' and pedido.estado == 'revisado' %}
+                  <!-- Botonera de decisiones -->
+                  <div class="card-footer bg-light border-top p-2 d-flex flex-column gap-1" id="footer-actions-{{ tarea.id }}">
+                    <div class="d-flex gap-1 flex-wrap">
+                        <button type="button" class="btn btn-outline-danger btn-sm flex-grow-1" onclick="iniciarRechazo({{ tarea.id }})">✗ Rechazar</button>
+                        {% if tarea.tipoTarea != 'control' %}
+                        <button type="button" class="btn btn-outline-info btn-sm flex-grow-1 text-dark" onclick="registrarDecision({{ tarea.id }}, 'control')"><i class="bi bi-arrow-repeat me-1"></i>Cambiar a Control</button>
+                        {% endif %}
+                        <button type="button" class="btn btn-success btn-sm flex-grow-1 fw-bold" onclick="registrarDecision({{ tarea.id }}, 'aprobar')">✓ Aprobar Sugerencia</button>
+                    </div>
+                    <div class="d-flex gap-1 mt-1">
+                        <a href="{% url 'detalle_tarea' tarea.id %}" class="btn btn-outline-primary btn-sm flex-grow-1">Gestionar Tarea</a>
+                        <a href="{% url 'historial_amortiguador' tarea.id %}" class="btn btn-outline-secondary btn-sm flex-grow-1"><i class="bi bi-clock-history me-1"></i>Historial</a>
+                    </div>
+                  </div>
+                  
+                  <!-- Resumen de decisión en memoria (Oculto al inicio) -->
+                  <div class="card-footer bg-white border-top p-2 d-none" id="footer-memory-{{ tarea.id }}">
+                    <div class="d-flex justify-content-between align-items-center w-100 mb-2">
+                      <span id="badge-memory-{{ tarea.id }}" class="small fw-bold px-2 py-1 rounded"></span>
+                      <button type="button" class="btn btn-link btn-sm text-decoration-none py-0 m-0 text-muted" onclick="editarDecision({{ tarea.id }})"><i class="bi bi-pencil me-1"></i>Editar Decisión</button>
+                    </div>
+                    <div class="d-flex gap-1 w-100">
+                        <a href="{% url 'detalle_tarea' tarea.id %}" class="btn btn-outline-primary btn-sm flex-grow-1">Gestionar Tarea</a>
+                        <a href="{% url 'historial_amortiguador' tarea.id %}" class="btn btn-outline-secondary btn-sm flex-grow-1"><i class="bi bi-clock-history me-1"></i>Historial</a>
+                    </div>
+                  </div>
+                {% else %}
+                  <!-- FOOTER STANDARD PARA OTRAS VISTAS -->
+                  <div class="card-footer bg-light border-top p-2 d-flex gap-1 flex-wrap">
                     {% if tarea.estado != 'pendiente' %}
                       <a href="{% url 'detalle_tarea' tarea.id %}" class="btn btn-primary btn-sm flex-grow-1">
                         {% if pedido.estado == 'aprobado' or pedido.estado == 'terminado' or pedido.estado == 'retirado' %}Ver detalle{% else %}Gestionar tarea{% endif %}
                       </a>
                     {% endif %}
-                  {% endif %}
-                  
-                  <div class="d-flex gap-1 w-100 mt-1">
-                    {% if tarea.estado == 'pendiente' and pedido.estado != 'aprobado' and pedido.estado != 'terminado' and pedido.estado != 'retirado' and pedido.estado != 'notificado' %}
-                      <button type="button" class="btn btn-outline-warning btn-sm flex-grow-1" data-bs-toggle="modal" data-bs-target="#modalEditarTarea{{ tarea.id }}"><i class="bi bi-pencil"></i> Editar</button>
-                    {% endif %}
-                    <a href="{% url 'historial_amortiguador' tarea.id %}" class="btn btn-outline-secondary btn-sm flex-grow-1">Historial</a>
-                    {% if tarea.estado == 'pendiente' and pedido.estado != 'aprobado' and pedido.estado != 'terminado' and pedido.estado != 'retirado' and pedido.estado != 'notificado' %}
-                      <button type="button" class="btn btn-outline-danger btn-sm" data-confirm-action="eliminar_tarea" data-confirm-url="{% url 'detalle_pedido' pedido.id %}" data-confirm-title="Eliminar tarea" data-confirm-message="Esta tarea solo puede eliminarse si sigue pendiente." data-confirm-button="Eliminar" data-confirm-button-class="btn-danger" data-confirm-tarea-id="{{ tarea.id }}"><i class="bi bi-trash"></i></button>
-                    {% endif %}
+                    <div class="d-flex gap-1 w-100 mt-1">
+                      {% if tarea.estado == 'pendiente' and pedido.estado != 'aprobado' and pedido.estado != 'terminado' and pedido.estado != 'retirado' and pedido.estado != 'notificado' %}
+                        <button type="button" class="btn btn-outline-warning btn-sm flex-grow-1" data-bs-toggle="modal" data-bs-target="#modalEditarTarea{{ tarea.id }}"><i class="bi bi-pencil"></i> Editar</button>
+                      {% endif %}
+                      <a href="{% url 'historial_amortiguador' tarea.id %}" class="btn btn-outline-secondary btn-sm flex-grow-1"><i class="bi bi-clock-history me-1"></i>Historial</a>
+                      {% if tarea.estado == 'pendiente' and pedido.estado != 'aprobado' and pedido.estado != 'terminado' and pedido.estado != 'retirado' and pedido.estado != 'notificado' %}
+                        <button type="button" class="btn btn-outline-danger btn-sm" data-confirm-action="eliminar_tarea" data-confirm-url="{% url 'detalle_pedido' pedido.id %}" data-confirm-title="Eliminar tarea" data-confirm-message="Esta tarea solo puede eliminarse si sigue pendiente." data-confirm-button="Eliminar" data-confirm-button-class="btn-danger" data-confirm-tarea-id="{{ tarea.id }}"><i class="bi bi-trash"></i></button>
+                      {% endif %}
+                    </div>
                   </div>
-                </div>
+                {% endif %}
+                
               </article>
             </div>
             {% empty %}
@@ -370,6 +363,7 @@
       </div>
       {% endif %}
 
+      <!-- SECCIONES DE PRESUPUESTO INTACTAS... -->
       {% if pedido.estado == 'presupuestado' or pedido.estado == 'aprobado' and not control and todastareasrevisadas %}
         <div class="card main-card">
           <div class="card-header d-flex justify-content-between align-items-center">
@@ -566,6 +560,7 @@
   </div>
 </div>
 
+<!-- MODALES ORIGINALES MANTENIDOS -->
 {% for tarea in tareas %}
   {% if tarea.estado == 'pendiente' %}
   <div class="modal fade" id="modalEditarTarea{{ tarea.id }}" tabindex="-1" aria-hidden="true">
@@ -581,7 +576,7 @@
             <input type="hidden" name="accion" value="editar_tarea_asignacion">
             <input type="hidden" name="tarea_id" value="{{ tarea.id }}">
             <div class="alert alert-warning small border-0 bg-warning-subtle text-dark mb-4">
-              <i class="bi bi-info-circle-fill me-1"></i> Modificá el operario o la prioridad. Si te equivocaste de amortiguador, debés eliminar la tarea.
+              <i class="bi bi-info-circle-fill me-1"></i> Modificá el operario. Si te equivocaste de amortiguador, debés eliminar la tarea.
             </div>
             <div class="mb-4">
               <label class="form-label fw-bold text-secondary text-uppercase" style="font-size: 0.8rem;">Operario Asignado</label>
@@ -591,47 +586,10 @@
                 {% endfor %}
               </select>
             </div>
-            <div class="mb-2">
-              <label class="form-label fw-bold text-secondary text-uppercase" style="font-size: 0.8rem;">Prioridad</label>
-              <select name="prioridad" class="form-select" required>
-                <option value="alta" {% if tarea.prioridad == 'alta' %}selected{% endif %}>🔴 Alta</option>
-                <option value="media" {% if tarea.prioridad == 'media' %}selected{% endif %}>🟡 Media</option>
-                <option value="baja" {% if tarea.prioridad == 'baja' %}selected{% endif %}>🟢 Baja</option>
-              </select>
-            </div>
           </div>
           <div class="modal-footer bg-light border-top-0 p-3">
             <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Cancelar</button>
             <button type="submit" class="btn btn-primary px-4 fw-bold">Guardar</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-  {% endif %}
-
-  {% if tarea.estado == 'no revisada' %}
-  <div class="modal fade" id="modalRechazarTarea{{ tarea.id }}" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content border-0 shadow">
-        <div class="modal-header bg-white border-bottom">
-          <h5 class="modal-title text-dark mb-0 fw-bold">Rechazar Sugerencia - Tarea #{{ tarea.id }}</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <form method="post">
-          {% csrf_token %}
-          <div class="modal-body p-4">
-            <input type="hidden" name="accion" value="rechazar_sugerencia_rapida">
-            <input type="hidden" name="tarea_id" value="{{ tarea.id }}">
-            <p class="text-muted small mb-4">La tarea volverá a estado <strong>Pendiente</strong> con una alerta visible en el panel del operario.</p>
-            <div class="mb-3 text-start">
-              <label class="form-label fw-bold">Motivo del rechazo <span class="text-danger">*</span></label>
-              <textarea name="motivo_devolucion" class="form-control bg-light" rows="4" placeholder="Detalle por qué se rechaza..." required></textarea>
-            </div>
-          </div>
-          <div class="modal-footer bg-light border-top-0 p-3">
-            <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Cancelar</button>
-            <button type="submit" class="btn btn-danger px-4 fw-bold">Confirmar</button>
           </div>
         </form>
       </div>
@@ -670,4 +628,114 @@
 </div>
 {% endif %}
 
+<!-- MODAL GENÉRICO DE RECHAZO EN MEMORIA (Revisión) -->
+<div class="modal fade" id="modalRechazoMemoria" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-white border-bottom">
+        <h5 class="modal-title text-dark fw-bold"><i class="bi bi-exclamation-triangle text-danger me-2"></i>Motivo del Rechazo</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-4">
+        <input type="hidden" id="rechazo-tarea-id">
+        <p class="text-muted small mb-3">La tarea volverá a estado <strong>Pendiente</strong> (Devuelta) y el pedido regresará a <strong>En curso</strong> al guardar.</p>
+        <label class="form-label fw-bold small">Detallá el motivo para el operario <span class="text-danger">*</span></label>
+        <textarea id="rechazo-motivo" class="form-control" rows="4" placeholder="Ej: Faltó registrar un material..." required></textarea>
+      </div>
+      <div class="modal-footer bg-light border-top-0 p-3">
+        <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-danger fw-bold" onclick="confirmarRechazo()">Confirmar Rechazo</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Inicializamos la clave única para la sesión de este pedido
+  const pedidoId = {{ pedido.id }};
+  const memoriaKey = 'revision_pedido_' + pedidoId;
+  
+  // Leemos de la memoria compartida del navegador (por si venimos de evaluar una tarea en otra pantalla)
+  let decisionesGlobales = JSON.parse(sessionStorage.getItem(memoriaKey)) || {};
+
+  document.addEventListener('DOMContentLoaded', function() {
+      // Al cargar, restaura visualmente las tareas que ya evaluaste
+      for (const [tareaId, data] of Object.entries(decisionesGlobales)) {
+          actualizarUIVisual(tareaId, data.decision, data.motivo);
+      }
+  });
+
+  function registrarDecision(tareaId, decision, motivo = '') {
+      decisionesGlobales[tareaId] = { decision: decision, motivo: motivo };
+      sessionStorage.setItem(memoriaKey, JSON.stringify(decisionesGlobales)); // Guardar en memoria general
+      actualizarUIVisual(tareaId, decision, motivo);
+  }
+
+  function actualizarUIVisual(tareaId, decision, motivo) {
+      const actionsFooter = document.getElementById(`footer-actions-${tareaId}`);
+      const memoryFooter = document.getElementById(`footer-memory-${tareaId}`);
+      const badge = document.getElementById(`badge-memory-${tareaId}`);
+      
+      if (!actionsFooter || !memoryFooter || !badge) return;
+
+      actionsFooter.classList.add('d-none');
+      memoryFooter.classList.remove('d-none');
+      
+      if (decision === 'aprobar') {
+          badge.className = 'small fw-bold px-2 py-1 rounded bg-success-subtle text-success border border-success-subtle';
+          badge.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i>Aprobada';
+      } else if (decision === 'control') {
+          badge.className = 'small fw-bold px-2 py-1 rounded bg-info-subtle text-info-emphasis border border-info-subtle';
+          badge.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i>Cambio a Control';
+      } else if (decision === 'rechazar') {
+          badge.className = 'small fw-bold px-2 py-1 rounded bg-danger-subtle text-danger border border-danger-subtle';
+          badge.innerHTML = '<i class="bi bi-x-circle-fill me-1"></i>Rechazada (Motivo guardado)';
+      }
+  }
+
+  // Lógica del modal nativo para rechazar sin salir del pedido
+  function iniciarRechazo(tareaId) {
+      document.getElementById('rechazo-tarea-id').value = tareaId;
+      document.getElementById('rechazo-motivo').value = '';
+      const modal = new bootstrap.Modal(document.getElementById('modalRechazoMemoria'));
+      modal.show();
+  }
+
+  function confirmarRechazo() {
+      const tareaId = document.getElementById('rechazo-tarea-id').value;
+      const motivo = document.getElementById('rechazo-motivo').value.trim();
+      
+      if (!motivo) {
+          alert('Por favor, ingresá un motivo de rechazo.');
+          document.getElementById('rechazo-motivo').focus();
+          return;
+      }
+      
+      registrarDecision(tareaId, 'rechazar', motivo);
+      bootstrap.Modal.getInstance(document.getElementById('modalRechazoMemoria')).hide();
+  }
+
+  function editarDecision(tareaId) {
+      delete decisionesGlobales[tareaId];
+      sessionStorage.setItem(memoriaKey, JSON.stringify(decisionesGlobales)); 
+      
+      document.getElementById(`footer-memory-${tareaId}`).classList.add('d-none');
+      document.getElementById(`footer-actions-${tareaId}`).classList.remove('d-none');
+  }
+
+  function guardarRevision() {
+      const totalPendientesRevision = document.querySelectorAll('.task-no-revisada').length;
+      
+      if (Object.keys(decisionesGlobales).length < totalPendientesRevision) {
+          alert('¡Atención! Aún faltan tareas por auditar. Selecciona "Aprobar", "Rechazar" o "Cambiar a Control" en todas las tarjetas o detalles antes de guardar.');
+          return;
+      }
+      
+      document.getElementById('input-decisiones').value = JSON.stringify(decisionesGlobales);
+      
+      // Limpiamos la memoria porque la información ya viaja al backend de forma segura
+      sessionStorage.removeItem(memoriaKey);
+      document.getElementById('form-guardar-revision').submit();
+  }
+</script>
 {% endblock %}

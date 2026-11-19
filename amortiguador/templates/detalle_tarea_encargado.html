@@ -39,12 +39,7 @@
               <span class="text-muted small fw-bold text-uppercase">Operario Técnico</span>
               <span class="fw-medium text-dark">{{ tarea.operario.nombre }} {{ tarea.operario.apellido }}</span>
             </li>
-            <li class="list-group-item bg-transparent px-0 py-3 d-flex justify-content-between align-items-center px-4">
-              <span class="text-muted small fw-bold text-uppercase">Prioridad</span>
-              {% if tarea.prioridad|lower == 'alta' %}<span class="badge bg-danger">Alta</span>
-              {% elif tarea.prioridad|lower == 'media' %}<span class="badge bg-warning text-dark">Media</span>
-              {% else %}<span class="badge bg-info text-dark">Baja</span>{% endif %}
-            </li>
+            
             
             {% if tarea.pedido.estado == 'presupuestado' or tarea.pedido.estado == 'terminado' %}
             <li class="list-group-item bg-transparent px-4 py-3 ">
@@ -69,19 +64,31 @@
           </ul>
 
           <div class="mt-auto d-flex flex-column gap-2">
+            <!-- BOTONERA DE DECISIÓN VINCULADA A LA MEMORIA JS -->
             {% if tarea.estado == 'no revisada' %}
-            <div class="d-flex gap-2 w-100 mb-2">
+            <!-- Contenedor 1: Botones de Acción (Oculto si ya hay decisión) -->
+            <div id="acciones-tarea-{{ tarea.id }}" class="d-flex flex-wrap gap-2 w-100 mb-2">
               <button type="button" class="btn btn-outline-danger fw-bold flex-grow-1 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalRechazarTarea">
                 <i class="bi bi-x-lg me-1"></i> Rechazar
               </button>
-              <form method="post" action="{% url 'detalle_pedido' tarea.pedido.id %}" class="flex-grow-1 m-0">
-                {% csrf_token %}
-                <input type="hidden" name="accion" value="aprobar_sugerencia_rapida">
-                <input type="hidden" name="tarea_id" value="{{ tarea.id }}">
-                <button type="submit" class="btn btn-success fw-bold w-100 shadow-sm">
-                  <i class="bi bi-check-lg me-1"></i> Aprobar
+              {% if tarea.tipoTarea != 'control' %}
+              <button type="button" class="btn btn-outline-info fw-bold flex-grow-1 shadow-sm text-dark" onclick="registrarDecisionYVolver({{ tarea.id }}, {{ tarea.pedido.id }}, 'control')">
+                <i class="bi bi-arrow-repeat me-1"></i> A Control
+              </button>
+              {% endif %}
+              <button type="button" class="btn btn-success fw-bold flex-grow-1 shadow-sm" onclick="registrarDecisionYVolver({{ tarea.id }}, {{ tarea.pedido.id }}, 'aprobar')">
+                <i class="bi bi-check-lg me-1"></i> Aprobar Sugerencia
+              </button>
+            </div>
+
+            <!-- Contenedor 2: Memoria Visual (Oculto si NO hay decisión) -->
+            <div id="memoria-tarea-{{ tarea.id }}" class="d-none w-100 mb-2">
+              <div class="d-flex justify-content-between align-items-center bg-white border p-2 rounded shadow-sm">
+                <span id="badge-memory-{{ tarea.id }}" class="small fw-bold px-2 py-1 rounded"></span>
+                <button type="button" class="btn btn-link btn-sm text-decoration-none py-0 m-0 text-muted" onclick="editarDecisionEnDetalle({{ tarea.id }}, {{ tarea.pedido.id }})">
+                  <i class="bi bi-pencil me-1"></i>Editar
                 </button>
-              </form>
+              </div>
             </div>
             {% endif %}
 
@@ -194,6 +201,7 @@ Registrado el: {{ observacion.fecha|date:"d/m/Y H:i" }}</span>
   </div>
 </div>
 
+<!-- Modal para Rechazar Sugerencia adaptado a la memoria JS -->
 <div class="modal fade" id="modalRechazarTarea" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content border-0 shadow">
@@ -201,28 +209,87 @@ Registrado el: {{ observacion.fecha|date:"d/m/Y H:i" }}</span>
         <h5 class="modal-title"><i class="bi bi-x-circle text-danger me-2"></i>Rechazar Sugerencia #{{ tarea.id }}</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-      <form method="post" action="{% url 'detalle_pedido' tarea.pedido.id %}">
-        {% csrf_token %}
-        <div class="modal-body p-4">
-          <input type="hidden" name="accion" value="rechazar_sugerencia_rapida">
-          <input type="hidden" name="tarea_id" value="{{ tarea.id }}">
-          
-          <div class="alert alert-danger border-0 bg-danger-subtle text-dark small mb-4">
-            <i class="bi bi-exclamation-triangle-fill me-1"></i> La tarea volverá a estado <strong>Pendiente</strong> en la bandeja de <strong>{{ tarea.operario.nombre }}</strong> para que corrija el diagnóstico.
-          </div>
-          
-          <div class="mb-3">
-            <label class="form-label fw-bold text-secondary text-uppercase" style="font-size: 0.8rem;">Motivo del Rechazo <span class="text-danger">*</span></label>
-            <textarea class="form-control bg-light" name="motivo_devolucion" rows="4" placeholder="Detalla el error técnico o por qué se rechaza la sugerencia..." required></textarea>
-          </div>
+      <div class="modal-body p-4">
+        <div class="alert alert-danger border-0 bg-danger-subtle text-dark small mb-4">
+          <i class="bi bi-exclamation-triangle-fill me-1"></i> La tarea volverá a estado <strong>Pendiente</strong> en la bandeja de <strong>{{ tarea.operario.nombre }}</strong> al confirmar el pedido general.
         </div>
-        <div class="modal-footer bg-light border-top-0 p-3">
-          <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Cancelar</button>
-          <button type="submit" class="btn btn-danger fw-bold px-4">Confirmar Rechazo</button>
+        <div class="mb-3">
+          <label class="form-label fw-bold text-secondary text-uppercase" style="font-size: 0.8rem;">Motivo del Rechazo <span class="text-danger">*</span></label>
+          <textarea id="motivo_rechazo_input" class="form-control bg-light" rows="4" placeholder="Detalla el error técnico o por qué se rechaza la sugerencia..." required></textarea>
         </div>
-      </form>
+      </div>
+      <div class="modal-footer bg-light border-top-0 p-3">
+        <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-danger fw-bold px-4" onclick="confirmarRechazoYVolver({{ tarea.id }}, {{ tarea.pedido.id }})">Confirmar Rechazo</button>
+      </div>
     </div>
   </div>
 </div>
 
+<script>
+  // Variables globales del contexto Django
+  const tareaIdActual = {{ tarea.id }};
+  const pedidoIdActual = {{ tarea.pedido.id }};
+  const memoriaKey = 'revision_pedido_' + pedidoIdActual;
+
+  document.addEventListener('DOMContentLoaded', function() {
+      // Leemos de la memoria compartida del navegador
+      let decisionesGlobales = JSON.parse(sessionStorage.getItem(memoriaKey)) || {};
+      
+      // Si la tarea actual ya fue evaluada, ajustamos la interfaz
+      if (decisionesGlobales[tareaIdActual]) {
+          const data = decisionesGlobales[tareaIdActual];
+          const actionsDiv = document.getElementById(`acciones-tarea-${tareaIdActual}`);
+          const memoryDiv = document.getElementById(`memoria-tarea-${tareaIdActual}`);
+          const badge = document.getElementById(`badge-memory-${tareaIdActual}`);
+          
+          if (actionsDiv && memoryDiv && badge) {
+              actionsDiv.classList.add('d-none');
+              memoryDiv.classList.remove('d-none');
+              
+              if (data.decision === 'aprobar') {
+                  badge.className = 'small fw-bold px-2 py-1 rounded bg-success-subtle text-success border border-success-subtle';
+                  badge.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i>Aprobada en Memoria';
+              } else if (data.decision === 'control') {
+                  badge.className = 'small fw-bold px-2 py-1 rounded bg-info-subtle text-info-emphasis border border-info-subtle';
+                  badge.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i>Cambio a Control en Memoria';
+              } else if (data.decision === 'rechazar') {
+                  badge.className = 'small fw-bold px-2 py-1 rounded bg-danger-subtle text-danger border border-danger-subtle';
+                  badge.innerHTML = '<i class="bi bi-x-circle-fill me-1"></i>Rechazada en Memoria';
+              }
+          }
+      }
+  });
+
+  function registrarDecisionYVolver(tareaId, pedidoId, decision, motivo = '') {
+      let decisiones = JSON.parse(sessionStorage.getItem(memoriaKey)) || {};
+      
+      // Guardar la nueva decisión
+      decisiones[tareaId] = { decision: decision, motivo: motivo };
+      sessionStorage.setItem(memoriaKey, JSON.stringify(decisiones));
+      
+      // Redirigir de vuelta a la vista general del pedido
+      window.location.href = "{% url 'detalle_pedido' tarea.pedido.id %}"; 
+  }
+
+  function confirmarRechazoYVolver(tareaId, pedidoId) {
+      const motivo = document.getElementById('motivo_rechazo_input').value.trim();
+      if (!motivo) {
+          alert('Por favor, ingresá el motivo de rechazo técnico.');
+          document.getElementById('motivo_rechazo_input').focus();
+          return;
+      }
+      registrarDecisionYVolver(tareaId, pedidoId, 'rechazar', motivo);
+  }
+
+  function editarDecisionEnDetalle(tareaId, pedidoId) {
+      // Elimina la decisión de la memoria y restaura la botonera
+      let decisiones = JSON.parse(sessionStorage.getItem(memoriaKey)) || {};
+      delete decisiones[tareaId];
+      sessionStorage.setItem(memoriaKey, JSON.stringify(decisiones));
+      
+      document.getElementById(`memoria-tarea-${tareaId}`).classList.add('d-none');
+      document.getElementById(`acciones-tarea-${tareaId}`).classList.remove('d-none');
+  }
+</script>
 {% endblock %}

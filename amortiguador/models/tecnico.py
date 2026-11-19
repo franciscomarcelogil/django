@@ -13,14 +13,13 @@ class Fichaamortiguador (models.Model):
 
 class Amortiguador(models.Model):
   nroSerieamortiguador= models.BigIntegerField()
-  tipo = models.CharField(max_length=100)
+
   fichaamortiguador = models.ForeignKey(Fichaamortiguador, on_delete=models.CASCADE)
-  configuracion = models.CharField(max_length=100, default='Sin configurar')
+
 
 class Tarea(models.Model):
   pedido = models.ForeignKey(Pedido, on_delete=models.CASCADE)
   estado = models.CharField(max_length=20)
-  prioridad = models.CharField(max_length=20)
   fechaAsignacion = models.DateField(auto_now_add=True)
   fechaLimite = models.DateField(blank=True, null=True)
   tipoTarea = models.CharField(max_length=100, blank=True, null=True)

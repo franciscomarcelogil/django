@@ -9,8 +9,8 @@ class Cliente(models.Model):
 
 
 class Pedido(models.Model):
-  fechaingreso = models.DateField(auto_now_add=True)
-  horaingreso = models.TimeField(auto_now_add=True)
+  fechaingreso = models.DateTimeField(auto_now_add=True)
+
   estado = models.CharField(max_length=100)
   fechaSalidaEstimada = models.DateTimeField(blank=True, null=True)
   fechaSalidaReal = models.DateTimeField(blank=True, null=True)
@@ -21,7 +21,7 @@ class Pedido(models.Model):
   fecha_ultimo_cambio = models.DateTimeField(auto_now=True)
   fecha_presupuesto = models.DateTimeField(null=True, blank=True)
 
-
+ 
 class Comprobante(models.Model):
   pedido = models.OneToOneField(Pedido, on_delete=models.CASCADE, related_name='comprobante')
   fecha_creacion = models.DateTimeField(auto_now_add=True)

@@ -54,6 +54,8 @@ urlpatterns = [
     path('login/', views.login_view, name='login'),
     # auth
     path('accounts/', include('django.contrib.auth.urls')),
+    path('pedido/crear/', views.crear_pedido_dinamico, name='crear_pedido_dinamico'),
+    path('pedido/crear/<int:pedido_id>/', views.crear_pedido_dinamico, name='crear_pedido_dinamico_con_id'),
 
 ]
 
